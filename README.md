@@ -4,6 +4,11 @@ Skill-High is a local, student-first marketplace for finding practical help, agr
 
 It is a full-stack MVP, not a static mockup. The public page is a search-first marketplace backed by the live API; signed-in users can hire, offer services, manage orders, message, deliver, review, and resolve disputes.
 
+## Documentation
+
+- [Technical Design Document](docs/TECHNICAL_DESIGN.md)
+- [Sample data and test cases](docs/SAMPLE_DATA_AND_TEST_CASES.md)
+
 ## What works
 
 - Public service and project discovery with search and category shortcuts.
@@ -57,6 +62,25 @@ podman start skillhigh-postgres
 
 `compose.yaml` provides the equivalent PostgreSQL setup for environments with a Compose provider.
 
+## Environment variables
+
+The defaults in `.env.example` target the local Podman/Compose database above. The API reads variables from its process environment; export only the values you need to override.
+
+| Variable                | Default                                                                   | Purpose                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | `postgresql+psycopg://skillhigh:skillhigh@127.0.0.1:54329/skillhigh_dev`  | Development database used by the API, migrations, seed command, and worker.                                                         |
+| `TEST_DATABASE_URL`     | `postgresql+psycopg://skillhigh:skillhigh@127.0.0.1:54329/skillhigh_test` | Isolated database created and reset by the integration tests. It must differ from `DATABASE_URL`.                                   |
+| `APP_ENV`               | `development`                                                             | Enables local seed data and mail sink. `production` disables seed data, enables secure cookies, and disables the payment simulator. |
+| `DEV_PAYMENT_SIMULATOR` | `true`                                                                    | Enables the local-only payment simulator outside production.                                                                        |
+| `DEV_MAIL_DIR`          | `.data/dev-mail`                                                          | Location for development-only verification and password-reset messages.                                                             |
+
+For example, to use another local database for one command:
+
+```bash
+DATABASE_URL=postgresql+psycopg://skillhigh:skillhigh@127.0.0.1:54329/another_local_db \
+  uv run alembic upgrade head
+```
+
 ## Demo accounts
 
 In development, the sign-in panel has Worker, Client, and Admin buttons that fill a demo account automatically. All seeded accounts use this password:
@@ -76,7 +100,7 @@ The seed command is idempotent and is blocked when `APP_ENV=production`.
 ## Development services and constraints
 
 - Payments are an explicitly labeled local simulator (`DEV_PAYMENT_SIMULATOR=true`). It never contacts a provider or moves real money.
-- Verification and password-reset tokens go only to `.data/dev-mail/` in development; API responses never expose them.
+- Verification and password-reset tokens go only to `DEV_MAIL_DIR` (default: `.data/dev-mail`) in development; API responses never expose them.
 - Uploads fail closed until a malware scanner is configured. Delivery links continue to work.
 - The worker is local and PostgreSQL-backed. Install its schema and start it when developing or manually exercising worker handlers:
 
