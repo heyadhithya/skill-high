@@ -96,6 +96,14 @@ Completion locks the order, verifies the selected delivery and actor, rejects op
 
 Payment and payout state remain independent from work state. The development simulator only changes these states after server-side checks; it never contacts a payment processor or moves money.
 
+## Current interface flows
+
+The Next.js client keeps the MVP's query-string router, but exposes a distinct landing surface at `/` and explicit catalog destinations at `/?view=services` and `/?view=projects`. Authenticated workspace views include overview, inbox, earnings, profile, owned services/projects, applicants, applications, and order detail. Owner listing management uses `GET /me/services`, `PUT /services/{id}`, `PATCH /services/{id}/visibility`, `PUT /projects/{id}`, and `POST /projects/{id}/close`; application withdrawal and reapplication reuse the existing application row under a project-first lock.
+
+Public profiles use `GET /people/{id}` and return only public identity, active services, aggregate reviews, and opt-in proof titles/skills/dates. `PATCH /me/proof/{id}` controls that opt-in flag. Verification resend and password recovery remain session/token flows backed by the local development mail sink.
+
+Mutating order endpoints lock the shared order before checking participant access or changing payment, dispute, cancellation, delivery, revision, message, or review state. Project application mutations lock the project before the application, so competing accepts serialize on one project and return a conflict rather than a deadlock or a second order.
+
 ## Security and access control
 
 - Passwords use Argon2 hashes.
@@ -103,7 +111,7 @@ Payment and payout state remain independent from work state. The development sim
 - Authenticated mutations require the session and `X-CSRF-Token` value associated with it.
 - Order messages, deliveries, reviews, disputes, and order retrieval require an order participant. Administration requires `is_admin` from the stored user record; profile updates cannot grant it.
 - Registration validation uses Pydantic constraints. The local reset flow writes tokens to the development mail sink and does not return them in API responses.
-- File uploads currently fail closed with HTTP 503 until a malware scanner is configured. Delivery URLs are supported instead.
+- The file endpoint currently rejects uploads with HTTP 503. Private file storage, quarantine, scanning, and authorized download are not implemented; text and HTTP(S) delivery URLs are supported instead.
 
 ## Search, matching, and polling
 
@@ -128,5 +136,6 @@ The matching endpoint scores open projects with `20 × matching skills + 2 × mi
 - There is no real payment provider, email provider, malware scanner, or object store.
 - No API endpoint currently enqueues the example Procrastinate notification task; it proves the worker setup without making order completion depend on an external side effect.
 - Listing search is title `ILIKE`, not full-text search.
+- Matching uses skill overlap and weekly hours only. Deadline-aware capacity reservation, availability exceptions, commitment subtraction, and on-time skill evidence are not implemented.
 - Frontend category labels are inferred from listing skills and title with an `Other` fallback; the schema has no persisted category column yet.
 - The frontend is a focused single-page MVP rather than a separately routed interface for every resource.

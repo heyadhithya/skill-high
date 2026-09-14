@@ -303,6 +303,14 @@ class ServiceIn(BaseModel):
     skills: list[str] = Field(default_factory=list)
 
 
+class VisibilityIn(BaseModel):
+    is_active: bool
+
+
+class ProofVisibilityIn(BaseModel):
+    public: bool
+
+
 class DeliveryIn(BaseModel):
     message: str = Field(min_length=1, max_length=5000)
     submission_url: str = Field(default="", max_length=500)
@@ -400,6 +408,19 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
             db.flush()
         return skill
 
+    def normalized_skill_names(names: list[str]) -> list[str]:
+        result: list[str] = []
+        seen: set[str] = set()
+        for name in names:
+            clean = name.strip()
+            key = clean.casefold()
+            if not 2 <= len(clean) <= 80:
+                raise HTTPException(422, "Skill names must be between 2 and 80 characters")
+            if key not in seen:
+                seen.add(key)
+                result.append(clean)
+        return result
+
     def public_person(db: Session, user_id: int) -> dict:
         user = db.get(User, user_id)
         if not user:
@@ -434,6 +455,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
             "currency": service.currency,
             "estimated_hours": service.estimated_hours,
             "created_at": service.created_at,
+            "is_active": service.is_active,
             "skills": service_skills(db, service.id),
             "provider": public_person(db, service.provider_id),
             "seller_rating": round(sum(item["rating"] for item in reviews) / len(reviews), 1) if reviews else None,
@@ -484,8 +506,22 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
         })
         return result
 
-    def participant(db: Session, order_id: int, user: User) -> Order:
-        order = db.get(Order, order_id)
+    def serialize_order_summary(db: Session, order: Order) -> dict:
+        latest = db.scalar(select(OrderMessage).where(OrderMessage.order_id == order.id).order_by(OrderMessage.id.desc()).limit(1))
+        return {
+            **serialize_order(order),
+            "project_id": order.project_id,
+            "service_id": order.service_id,
+            "created_at": order.created_at,
+            "client": public_person(db, order.client_id),
+            "worker": public_person(db, order.worker_id),
+            "last_message": {"id": latest.id, "author_id": latest.author_id, "body": latest.body, "created_at": latest.created_at} if latest else None,
+        }
+
+    def participant(db: Session, order_id: int, user: User, lock: bool = False) -> Order:
+        stmt = select(Order).where(Order.id == order_id)
+        if lock: stmt = stmt.with_for_update()
+        order = db.scalar(stmt)
         if not order:
             raise HTTPException(404, "Order not found")
         if user.id not in {order.client_id, order.worker_id}:
@@ -501,7 +537,10 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
         if os.getenv("APP_ENV", "development") == "development":
             mail_dir = Path(os.getenv("DEV_MAIL_DIR", ".data/dev-mail"))
             mail_dir.mkdir(parents=True, exist_ok=True)
-            (mail_dir / f"{purpose}-{token.token}.txt").write_text(f"To: {user.email}\ntoken={token.token}\n")
+            view = "reset-password" if purpose == "password-reset" else "verify-email"
+            (mail_dir / f"{purpose}-{token.token}.txt").write_text(
+                f"To: {user.email}\nOpen: http://127.0.0.1:3000/?view={view}&token={token.token}\ntoken={token.token}\n"
+            )
 
     @app.get("/api/v1/health")
     def health() -> dict: return {"status": "ok"}
@@ -542,7 +581,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
     @app.post("/api/v1/auth/verify-email", status_code=204)
     def verify_email(payload: dict, db: Session = Depends(db_session)) -> Response:
         token_value = str(payload.get("token", ""))
-        token = db.scalar(select(AuthToken).where(AuthToken.token == token_value, AuthToken.purpose == "verification"))
+        token = db.scalar(select(AuthToken).where(AuthToken.token == token_value, AuthToken.purpose == "verification").with_for_update())
         if not token or token.used_at or token.expires_at < datetime.now(UTC):
             raise HTTPException(400, "Invalid or expired verification token")
         user = db.get(User, token.user_id)
@@ -552,9 +591,16 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
         db.commit()
         return Response(status_code=204)
 
+    @app.post("/api/v1/auth/resend-verification", status_code=202)
+    def resend_verification(db: Session = Depends(db_session), user: User = Depends(actor)) -> Response:
+        if not user.is_verified:
+            issue_token(db, user, "verification")
+            db.commit()
+        return Response(status_code=202)
+
     @app.post("/api/v1/auth/reset-password", status_code=204)
     def reset_password(payload: ResetPasswordIn, db: Session = Depends(db_session)) -> Response:
-        token = db.scalar(select(AuthToken).where(AuthToken.token == payload.token, AuthToken.purpose == "password-reset"))
+        token = db.scalar(select(AuthToken).where(AuthToken.token == payload.token, AuthToken.purpose == "password-reset").with_for_update())
         if not token or token.used_at or token.expires_at < datetime.now(UTC):
             raise HTTPException(400, "Invalid or expired reset token")
         user = db.get(User, token.user_id)
@@ -569,7 +615,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
     @app.post("/api/v1/auth/logout", status_code=204)
     def logout(response: Response, db: Session = Depends(db_session), session_id: str | None = Cookie(default=None, alias=COOKIE_NAME)) -> Response:
         if session_id and (login := db.get(LoginSession, session_id)): db.delete(login); db.commit()
-        response.delete_cookie(COOKIE_NAME); response.delete_cookie(CSRF_COOKIE)
+        response.delete_cookie(COOKIE_NAME); response.delete_cookie(CSRF_COOKIE); response.status_code = 204
         return response
 
     @app.get("/api/v1/me")
@@ -611,7 +657,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
     def create_project(payload: ProjectIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
         project = Project(client_id=user.id, title=payload.title, description=payload.description, amount_minor=payload.amount_minor, currency=payload.currency.upper(), scale=payload.scale, estimated_hours=payload.estimated_hours)
         db.add(project); db.flush()
-        for name in payload.required_skills: db.add(ProjectSkill(project_id=project.id, skill_id=get_skill(db, name).id))
+        for name in normalized_skill_names(payload.required_skills): db.add(ProjectSkill(project_id=project.id, skill_id=get_skill(db, name).id))
         db.commit(); return {"id": project.id, "title": project.title, "status": project.status, "required_skills": payload.required_skills}
 
     @app.get("/api/v1/projects")
@@ -637,6 +683,35 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
             order = db.scalar(select(Order).where(Order.project_id == project.id))
             result.append({**serialize_project(db, project), "application_count": application_count, "order_id": order.id if order else None})
         return result
+
+    @app.put("/api/v1/projects/{project_id}")
+    def update_project(project_id: int, payload: ProjectIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
+        project = db.scalar(select(Project).where(Project.id == project_id).with_for_update())
+        if not project: raise HTTPException(404, "Project not found")
+        if project.client_id != user.id: raise HTTPException(403, "Only the project client may edit")
+        if project.status != "open": raise HTTPException(409, "Only open projects may be edited")
+        if db.scalar(select(Application.id).where(Application.project_id == project.id)):
+            raise HTTPException(409, "A project with applications cannot be rewritten")
+        project.title, project.description = payload.title, payload.description
+        project.amount_minor, project.currency = payload.amount_minor, payload.currency.upper()
+        project.scale, project.estimated_hours = payload.scale, payload.estimated_hours
+        for link in db.scalars(select(ProjectSkill).where(ProjectSkill.project_id == project.id)).all(): db.delete(link)
+        db.flush()
+        for name in normalized_skill_names(payload.required_skills): db.add(ProjectSkill(project_id=project.id, skill_id=get_skill(db, name).id))
+        db.commit()
+        return serialize_project(db, project)
+
+    @app.post("/api/v1/projects/{project_id}/close")
+    def close_project(project_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
+        project = db.scalar(select(Project).where(Project.id == project_id).with_for_update())
+        if not project: raise HTTPException(404, "Project not found")
+        if project.client_id != user.id: raise HTTPException(403, "Only the project client may close it")
+        if project.status == "assigned": raise HTTPException(409, "Assigned projects cannot be closed")
+        if project.status == "closed": return serialize_project(db, project)
+        project.status = "closed"
+        for application in db.scalars(select(Application).where(Application.project_id == project.id, Application.status == "pending").with_for_update()).all(): application.status = "closed"
+        db.commit()
+        return serialize_project(db, project)
 
     @app.get("/api/v1/projects/{project_id}/applications")
     def project_applications(project_id: int, db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
@@ -664,9 +739,16 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
 
     @app.post("/api/v1/projects/{project_id}/applications", status_code=201)
     def apply(project_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        project = db.get(Project, project_id)
+        project = db.scalar(select(Project).where(Project.id == project_id).with_for_update())
         if not project or project.status != "open": raise HTTPException(404, "Open project not found")
         if project.client_id == user.id: raise HTTPException(422, "You cannot apply to your own project")
+        application = db.scalar(select(Application).where(Application.project_id == project.id, Application.worker_id == user.id).with_for_update())
+        if application:
+            if application.status == "withdrawn":
+                application.status, application.created_at = "pending", datetime.now(UTC)
+                db.commit()
+                return {"id": application.id, "project_id": project.id, "status": application.status}
+            raise HTTPException(409, "You already applied")
         try:
             application = Application(project_id=project.id, worker_id=user.id); db.add(application); db.commit()
         except IntegrityError:
@@ -675,21 +757,41 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
 
     @app.post("/api/v1/applications/{application_id}/accept")
     def accept_application(application_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        application = db.scalar(select(Application).where(Application.id == application_id).with_for_update())
+        application = db.get(Application, application_id)
         if not application: raise HTTPException(404, "Application not found")
         project = db.scalar(select(Project).where(Project.id == application.project_id).with_for_update())
         if not project or project.client_id != user.id: raise HTTPException(403, "Only the project client may accept")
+        application = db.scalar(select(Application).where(Application.id == application_id).execution_options(populate_existing=True).with_for_update())
+        if not application: raise HTTPException(404, "Application not found")
         if project.status != "open" or application.status != "pending": raise HTTPException(409, "Project is no longer available")
         names = db.scalars(select(Skill.name).join(ProjectSkill).where(ProjectSkill.project_id == project.id)).all()
         order = Order(client_id=user.id, worker_id=application.worker_id, project_id=project.id, title=project.title, scope_snapshot=project.description, skills_snapshot=", ".join(names), amount_minor=project.amount_minor, fee_minor=project.amount_minor // 10, currency=project.currency, estimated_hours=project.estimated_hours, status="active")
-        project.status, application.status = "assigned", "accepted"; db.add(order); db.flush(); audit(db, order.id, user.id, "application_accepted"); db.commit()
+        project.status, application.status = "assigned", "accepted"
+        for other in db.scalars(select(Application).where(Application.project_id == project.id, Application.id != application.id, Application.status == "pending").with_for_update()).all():
+            other.status = "not_selected"
+        db.add(order); db.flush(); audit(db, order.id, user.id, "application_accepted"); db.commit()
         return serialize_order(order)
+
+    @app.post("/api/v1/applications/{application_id}/withdraw")
+    def withdraw_application(application_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
+        initial = db.get(Application, application_id)
+        if not initial: raise HTTPException(404, "Application not found")
+        project = db.scalar(select(Project).where(Project.id == initial.project_id).with_for_update())
+        application = db.scalar(select(Application).where(Application.id == application_id).execution_options(populate_existing=True).with_for_update())
+        if not application: raise HTTPException(404, "Application not found")
+        if application.worker_id != user.id: raise HTTPException(403, "Only the applicant may withdraw")
+        if application.status == "accepted": raise HTTPException(409, "Accepted applications cannot be withdrawn")
+        if application.status == "withdrawn": return {"id": application.id, "project_id": application.project_id, "status": application.status}
+        if application.status != "pending": raise HTTPException(409, "This application cannot be withdrawn")
+        application.status = "withdrawn"
+        db.commit()
+        return {"id": application.id, "project_id": application.project_id, "status": application.status}
 
     @app.post("/api/v1/services", status_code=201)
     def create_service(payload: ServiceIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
         service = Service(provider_id=user.id, title=payload.title, description=payload.description, amount_minor=payload.amount_minor, currency=payload.currency.upper(), estimated_hours=payload.estimated_hours)
         db.add(service); db.flush()
-        for name in payload.skills: db.add(ServiceSkill(service_id=service.id, skill_id=get_skill(db, name).id))
+        for name in normalized_skill_names(payload.skills): db.add(ServiceSkill(service_id=service.id, skill_id=get_skill(db, name).id))
         db.commit(); return {"id": service.id, "title": service.title, "is_active": service.is_active}
 
     @app.get("/api/v1/services")
@@ -705,9 +807,35 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
             raise HTTPException(404, "Service not found")
         return serialize_service(db, service, detail=True)
 
+    @app.get("/api/v1/me/services")
+    def my_services(db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
+        return [serialize_service(db, service, detail=True) for service in db.scalars(select(Service).where(Service.provider_id == user.id).order_by(Service.created_at.desc())).all()]
+
+    @app.put("/api/v1/services/{service_id}")
+    def update_service(service_id: int, payload: ServiceIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
+        service = db.scalar(select(Service).where(Service.id == service_id).with_for_update())
+        if not service: raise HTTPException(404, "Service not found")
+        if service.provider_id != user.id: raise HTTPException(403, "Only the provider may edit this service")
+        service.title, service.description = payload.title, payload.description
+        service.amount_minor, service.currency, service.estimated_hours = payload.amount_minor, payload.currency.upper(), payload.estimated_hours
+        for link in db.scalars(select(ServiceSkill).where(ServiceSkill.service_id == service.id)).all(): db.delete(link)
+        db.flush()
+        for name in normalized_skill_names(payload.skills): db.add(ServiceSkill(service_id=service.id, skill_id=get_skill(db, name).id))
+        db.commit()
+        return serialize_service(db, service, detail=True)
+
+    @app.patch("/api/v1/services/{service_id}/visibility")
+    def set_service_visibility(service_id: int, payload: VisibilityIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
+        service = db.scalar(select(Service).where(Service.id == service_id).with_for_update())
+        if not service: raise HTTPException(404, "Service not found")
+        if service.provider_id != user.id: raise HTTPException(403, "Only the provider may change visibility")
+        service.is_active = payload.is_active
+        db.commit()
+        return serialize_service(db, service, detail=True)
+
     @app.post("/api/v1/services/{service_id}/orders", status_code=201)
     def request_service(service_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        service = db.get(Service, service_id)
+        service = db.scalar(select(Service).where(Service.id == service_id).with_for_update())
         if not service or not service.is_active: raise HTTPException(404, "Service not found")
         if service.provider_id == user.id: raise HTTPException(422, "You cannot order your own service")
         names = db.scalars(select(Skill.name).join(ServiceSkill).where(ServiceSkill.service_id == service.id)).all()
@@ -723,14 +851,16 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
 
     @app.get("/api/v1/orders")
     def list_orders(db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
-        return [serialize_order(order) for order in db.scalars(select(Order).where((Order.client_id == user.id) | (Order.worker_id == user.id)).order_by(Order.created_at.desc())).all()]
+        orders = db.scalars(select(Order).where((Order.client_id == user.id) | (Order.worker_id == user.id)).order_by(Order.created_at.desc())).all()
+        # ponytail: one latest-message lookup per visible order; batch a lateral query if order volume warrants it.
+        return [serialize_order_summary(db, order) for order in orders]
 
     @app.get("/api/v1/orders/{order_id}")
     def get_order(order_id: int, db: Session = Depends(db_session), user: User = Depends(current_user)) -> dict: return serialize_order_detail(db, participant(db, order_id, user))
 
     @app.post("/api/v1/orders/{order_id}/cancel")
     def cancel_order(order_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        order = participant(db, order_id, user)
+        order = participant(db, order_id, user, lock=True)
         if order.status not in {"pending_acceptance", "active", "submitted"}:
             raise HTTPException(409, "This order cannot be cancelled")
         order.status, order.payout_status = "cancelled", "blocked"
@@ -740,7 +870,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
 
     @app.post("/api/v1/orders/{order_id}/messages", status_code=201)
     def post_message(order_id: int, payload: MessageIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        participant(db, order_id, user); message = OrderMessage(order_id=order_id, author_id=user.id, body=payload.body); db.add(message); db.commit(); return {"id": message.id, "author_id": message.author_id, "body": message.body}
+        participant(db, order_id, user, lock=True); message = OrderMessage(order_id=order_id, author_id=user.id, body=payload.body); db.add(message); db.commit(); return {"id": message.id, "author_id": message.author_id, "body": message.body}
 
     @app.get("/api/v1/orders/{order_id}/messages")
     def get_messages(order_id: int, after_id: int = 0, db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
@@ -749,14 +879,14 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
 
     @app.post("/api/v1/orders/{order_id}/deliveries", status_code=201)
     def submit_delivery(order_id: int, payload: DeliveryIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        order = participant(db, order_id, user)
+        order = participant(db, order_id, user, lock=True)
         if order.worker_id != user.id or order.status != "active": raise HTTPException(409, "Only the worker may deliver active work")
         delivery = Delivery(order_id=order.id, author_id=user.id, message=payload.message, submission_url=payload.submission_url); db.add(delivery); db.flush(); order.latest_delivery_id, order.status = delivery.id, "submitted"; audit(db, order.id, user.id, "delivery_submitted"); db.commit()
         return {"id": delivery.id, "order_id": delivery.order_id, "message": delivery.message, "submission_url": delivery.submission_url}
 
     @app.post("/api/v1/orders/{order_id}/request-revision")
     def request_revision(order_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        order = participant(db, order_id, user)
+        order = participant(db, order_id, user, lock=True)
         if order.client_id != user.id or order.status != "submitted": raise HTTPException(409, "Only the client may request a revision after delivery")
         order.status = "active"; audit(db, order.id, user.id, "revision_requested"); db.commit(); return serialize_order(order)
 
@@ -777,7 +907,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
 
     @app.post("/api/v1/orders/{order_id}/reviews", status_code=201)
     def review_order(order_id: int, payload: ReviewIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        order = participant(db, order_id, user)
+        order = participant(db, order_id, user, lock=True)
         if order.status != "completed": raise HTTPException(409, "Reviews require completed work")
         recipient = order.worker_id if user.id == order.client_id else order.client_id
         try: review = Review(order_id=order.id, author_id=user.id, recipient_id=recipient, rating=payload.rating, body=payload.body); db.add(review); db.commit()
@@ -789,9 +919,31 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
     def my_proof(db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
         return [{"id": proof.id, "order_id": proof.order_id, "title": proof.title, "public": proof.public, "created_at": proof.created_at} for proof in db.scalars(select(ProofOfWork).where(ProofOfWork.worker_id == user.id).order_by(ProofOfWork.created_at.desc())).all()]
 
+    @app.patch("/api/v1/me/proof/{proof_id}")
+    def set_proof_visibility(proof_id: int, payload: ProofVisibilityIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
+        proof = db.scalar(select(ProofOfWork).where(ProofOfWork.id == proof_id).with_for_update())
+        if not proof: raise HTTPException(404, "Proof record not found")
+        if proof.worker_id != user.id: raise HTTPException(403, "Only the worker may change proof visibility")
+        proof.public = payload.public
+        db.commit()
+        return {"id": proof.id, "order_id": proof.order_id, "title": proof.title, "public": proof.public, "created_at": proof.created_at}
+
+    @app.get("/api/v1/people/{user_id}")
+    def public_profile(user_id: int, db: Session = Depends(db_session)) -> dict:
+        member = db.get(User, user_id)
+        if not member or not member.is_active: raise HTTPException(404, "Member not found")
+        reviews = seller_reviews(db, user_id)
+        services = [serialize_service(db, service) for service in db.scalars(select(Service).where(Service.provider_id == user_id, Service.is_active.is_(True)).order_by(Service.created_at.desc())).all()]
+        proofs: list[dict] = []
+        for proof in db.scalars(select(ProofOfWork).where(ProofOfWork.worker_id == user_id, ProofOfWork.public.is_(True)).order_by(ProofOfWork.created_at.desc())).all():
+            order = db.get(Order, proof.order_id)
+            skills = [item.strip() for item in order.skills_snapshot.split(",") if item.strip()] if order else []
+            proofs.append({"id": proof.id, "title": proof.title, "skills": skills, "created_at": proof.created_at})
+        return {**public_person(db, user_id), "services": services, "seller_rating": round(sum(item["rating"] for item in reviews) / len(reviews), 1) if reviews else None, "seller_review_count": len(reviews), "seller_reviews": reviews, "proofs": proofs}
+
     @app.post("/api/v1/orders/{order_id}/disputes", status_code=201)
     def report_dispute(order_id: int, payload: DisputeIn, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
-        order = participant(db, order_id, user)
+        order = participant(db, order_id, user, lock=True)
         if order.status in {"completed", "cancelled"}: raise HTTPException(409, "This order cannot be disputed")
         dispute = Dispute(order_id=order.id, reporter_id=user.id, reason=payload.reason); db.add(dispute); audit(db, order.id, user.id, "dispute_opened"); db.commit(); return {"id": dispute.id, "status": dispute.status}
 
@@ -815,17 +967,36 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
     @app.post("/api/v1/payments/simulate/{order_id}")
     def simulate_payment(order_id: int, event_id: str, outcome: Literal["success", "failure", "refund", "payout"] = "success", db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
         if os.getenv("DEV_PAYMENT_SIMULATOR", "true").lower() != "true" or os.getenv("APP_ENV") == "production": raise HTTPException(404, "Payment simulator is unavailable")
-        order = participant(db, order_id, user)
+        order = participant(db, order_id, user, lock=True)
         if order.client_id != user.id: raise HTTPException(403, "Only the client may simulate payment")
-        if db.scalar(select(PaymentEvent).where(PaymentEvent.provider_event_id == event_id)): return {"duplicate": True, "payment_status": order.payment_status, "payout_status": order.payout_status}
-        db.add(PaymentEvent(provider_event_id=event_id, order_id=order.id, event_type=outcome))
-        if outcome == "success": order.payment_status = "paid"
-        elif outcome == "failure": order.payment_status = "failed"
-        elif outcome == "refund": order.payment_status, order.payout_status = "refunded", "blocked"
+        existing = db.scalar(select(PaymentEvent).where(PaymentEvent.provider_event_id == event_id).with_for_update())
+        if existing:
+            if existing.order_id != order.id or existing.event_type != outcome:
+                raise HTTPException(409, "Payment event was already used for another state")
+            return {"duplicate": True, "payment_status": order.payment_status, "payout_status": order.payout_status}
+        if outcome == "success":
+            if order.payment_status not in {"unpaid", "failed", "paid"} or order.payout_status == "paid": raise HTTPException(409, "Payment cannot be funded in its current state")
+            order.payment_status = "paid"
+        elif outcome == "failure":
+            if order.payment_status not in {"unpaid", "failed"}: raise HTTPException(409, "Payment cannot fail after settlement")
+            order.payment_status = "failed"
+        elif outcome == "refund":
+            if order.payment_status != "paid" or order.payout_status == "paid": raise HTTPException(409, "Only a paid, unsettled payment can be refunded")
+            order.payment_status, order.payout_status = "refunded", "blocked"
         elif outcome == "payout":
-            if order.status != "completed" or order.payout_status != "ready": raise HTTPException(409, "Payout is not ready")
+            if order.status != "completed" or order.payment_status != "paid" or order.payout_status != "ready" or db.scalar(select(Dispute).where(Dispute.order_id == order.id, Dispute.status == "open")):
+                raise HTTPException(409, "Payout is not ready")
             order.payout_status = "paid"
-        db.commit(); return {"simulated": True, "payment_status": order.payment_status, "payout_status": order.payout_status}
+        db.add(PaymentEvent(provider_event_id=event_id, order_id=order.id, event_type=outcome))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            event = db.scalar(select(PaymentEvent).where(PaymentEvent.provider_event_id == event_id))
+            if event and event.order_id == order.id and event.event_type == outcome:
+                return {"duplicate": True, "payment_status": order.payment_status, "payout_status": order.payout_status}
+            raise HTTPException(409, "Payment event was already used for another state") from None
+        return {"simulated": True, "payment_status": order.payment_status, "payout_status": order.payout_status}
 
     @app.get("/api/v1/matches")
     def matches(db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:

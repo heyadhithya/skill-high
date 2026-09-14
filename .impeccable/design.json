@@ -1,30 +1,171 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-14T00:00:00Z",
+  "generatedAt": "2026-09-14T23:05:39+05:30",
   "title": "Design System: Skill-High",
   "extensions": {
     "colorMeta": {
-      "ink": { "role": "neutral", "displayName": "Marketplace ink", "canonical": "#1d1f20" },
-      "ink-soft": { "role": "neutral", "displayName": "Soft ink", "canonical": "#45494b" },
-      "muted": { "role": "neutral", "displayName": "Muted gray", "canonical": "#6a706f" },
-      "paper": { "role": "neutral", "displayName": "Marketplace paper", "canonical": "#ffffff" },
-      "forest": { "role": "secondary", "displayName": "Discovery forest", "canonical": "#18372e" },
-      "teal": { "role": "primary", "displayName": "Working teal", "canonical": "#127455" },
-      "line": { "role": "neutral", "displayName": "Quiet line", "canonical": "#e3e5e4" },
-      "focus": { "role": "focus", "displayName": "Visible focus", "canonical": "#127455" }
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#172238",
+        "tonalRamp": ["oklch(16% 0.04 260)", "oklch(26% 0.04 260)", "oklch(36% 0.04 260)", "oklch(48% 0.04 260)", "oklch(60% 0.035 260)", "oklch(72% 0.03 260)", "oklch(84% 0.02 260)", "oklch(94% 0.015 260)"]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft ink",
+        "canonical": "#46536a",
+        "tonalRamp": ["oklch(24% 0.04 260)", "oklch(34% 0.04 260)", "oklch(44% 0.04 260)", "oklch(54% 0.035 260)", "oklch(64% 0.03 260)", "oklch(74% 0.025 260)", "oklch(84% 0.02 260)", "oklch(94% 0.015 260)"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#5c6678",
+        "tonalRamp": ["oklch(30% 0.03 260)", "oklch(40% 0.03 260)", "oklch(50% 0.03 260)", "oklch(60% 0.028 260)", "oklch(70% 0.025 260)", "oklch(79% 0.02 260)", "oklch(87% 0.016 260)", "oklch(95% 0.01 260)"]
+      },
+      "cobalt": {
+        "role": "primary",
+        "displayName": "Cobalt",
+        "canonical": "#3046d3",
+        "tonalRamp": ["oklch(20% 0.16 265)", "oklch(30% 0.18 265)", "oklch(40% 0.2 265)", "oklch(50% 0.22 265)", "oklch(60% 0.22 265)", "oklch(70% 0.19 265)", "oklch(82% 0.14 265)", "oklch(94% 0.08 265)"]
+      },
+      "cobalt-dark": {
+        "role": "primary",
+        "displayName": "Cobalt dark",
+        "canonical": "#2536a8",
+        "tonalRamp": ["oklch(17% 0.14 265)", "oklch(27% 0.16 265)", "oklch(37% 0.18 265)", "oklch(47% 0.2 265)", "oklch(57% 0.2 265)", "oklch(68% 0.17 265)", "oklch(80% 0.13 265)", "oklch(93% 0.07 265)"]
+      },
+      "saffron": {
+        "role": "secondary",
+        "displayName": "Saffron",
+        "canonical": "#f4c76b",
+        "tonalRamp": ["oklch(30% 0.08 85)", "oklch(40% 0.1 85)", "oklch(50% 0.12 85)", "oklch(60% 0.14 85)", "oklch(70% 0.15 85)", "oklch(78% 0.14 85)", "oklch(87% 0.1 85)", "oklch(95% 0.06 85)"]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Quiet line",
+        "canonical": "#dcdddc",
+        "tonalRamp": ["oklch(20% 0.005 120)", "oklch(30% 0.005 120)", "oklch(40% 0.005 120)", "oklch(50% 0.005 120)", "oklch(60% 0.005 120)", "oklch(70% 0.005 120)", "oklch(82% 0.005 120)", "oklch(94% 0.005 120)"]
+      },
+      "line-dark": {
+        "role": "neutral",
+        "displayName": "Control border",
+        "canonical": "#858ea0",
+        "tonalRamp": ["oklch(30% 0.02 260)", "oklch(40% 0.02 260)", "oklch(50% 0.02 260)", "oklch(60% 0.02 260)", "oklch(70% 0.02 260)", "oklch(78% 0.018 260)", "oklch(87% 0.012 260)", "oklch(95% 0.008 260)"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm paper",
+        "canonical": "#f8f7f3",
+        "tonalRamp": ["oklch(18% 0.02 95)", "oklch(28% 0.02 95)", "oklch(38% 0.02 95)", "oklch(48% 0.02 95)", "oklch(60% 0.018 95)", "oklch(72% 0.015 95)", "oklch(84% 0.012 95)", "oklch(95% 0.01 95)"]
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "Paper wash",
+        "canonical": "#f8f7f3",
+        "tonalRamp": ["oklch(18% 0.02 95)", "oklch(28% 0.02 95)", "oklch(38% 0.02 95)", "oklch(48% 0.02 95)", "oklch(60% 0.018 95)", "oklch(72% 0.015 95)", "oklch(84% 0.012 95)", "oklch(95% 0.01 95)"]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Working white",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(18% 0 0)", "oklch(28% 0 0)", "oklch(38% 0 0)", "oklch(48% 0 0)", "oklch(60% 0 0)", "oklch(72% 0 0)", "oklch(84% 0 0)", "oklch(100% 0 0)"]
+      },
+      "cobalt-tint": {
+        "role": "neutral",
+        "displayName": "Cobalt tint",
+        "canonical": "#edf0ff",
+        "tonalRamp": ["oklch(20% 0.05 265)", "oklch(30% 0.06 265)", "oklch(40% 0.07 265)", "oklch(50% 0.08 265)", "oklch(60% 0.09 265)", "oklch(72% 0.08 265)", "oklch(84% 0.06 265)", "oklch(95% 0.03 265)"]
+      },
+      "cobalt-on": {
+        "role": "neutral",
+        "displayName": "Cobalt-on text",
+        "canonical": "#dbe1ff",
+        "tonalRamp": ["oklch(35% 0.08 265)", "oklch(45% 0.09 265)", "oklch(55% 0.1 265)", "oklch(65% 0.1 265)", "oklch(75% 0.09 265)", "oklch(82% 0.08 265)", "oklch(90% 0.06 265)", "oklch(97% 0.025 265)"]
+      },
+      "danger": {
+        "role": "semantic-danger",
+        "displayName": "Danger",
+        "canonical": "#a62d3c",
+        "tonalRamp": ["oklch(22% 0.12 15)", "oklch(32% 0.14 15)", "oklch(42% 0.16 15)", "oklch(52% 0.17 15)", "oklch(62% 0.16 15)", "oklch(72% 0.13 15)", "oklch(84% 0.09 15)", "oklch(95% 0.04 15)"]
+      },
+      "success": {
+        "role": "semantic-success",
+        "displayName": "Success",
+        "canonical": "#22654d",
+        "tonalRamp": ["oklch(22% 0.08 160)", "oklch(32% 0.09 160)", "oklch(42% 0.1 160)", "oklch(52% 0.11 160)", "oklch(62% 0.1 160)", "oklch(72% 0.08 160)", "oklch(84% 0.05 160)", "oklch(95% 0.025 160)"]
+      },
+      "focus": {
+        "role": "focus",
+        "displayName": "Visible focus",
+        "canonical": "#3046d3",
+        "tonalRamp": ["oklch(20% 0.16 265)", "oklch(30% 0.18 265)", "oklch(40% 0.2 265)", "oklch(50% 0.22 265)", "oklch(60% 0.22 265)", "oklch(70% 0.19 265)", "oklch(82% 0.14 265)", "oklch(94% 0.08 265)"]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Manrope marketplace headings", "purpose": "Listing titles, page headings, and prices." },
-      "body": { "displayName": "DM Sans operational body", "purpose": "Forms, records, and explanatory copy." }
+      "display": {
+        "displayName": "Schibsted Grotesk display",
+        "purpose": "Operational headings, listing titles, and prices."
+      },
+      "headline": {
+        "displayName": "Schibsted Grotesk landing headline",
+        "purpose": "The main landing proposition and high-attention entry statements."
+      },
+      "body": {
+        "displayName": "DM Sans body",
+        "purpose": "Forms, records, messages, and explanatory copy."
+      },
+      "label": {
+        "displayName": "DM Sans functional label",
+        "purpose": "Fields, skills, statuses, and category metadata."
+      }
     },
-    "breakpoints": [
-      { "name": "tablet", "value": "1080px" },
-      { "name": "phone", "value": "760px" },
-      { "name": "small-phone", "value": "470px" }
+    "shadows": [
+      {
+        "name": "process-photo-lift",
+        "value": "0 16px 40px rgba(23, 34, 56, .17)",
+        "purpose": "Separate the small overlapping landing photograph from the paper canvas."
+      },
+      {
+        "name": "account-menu-lift",
+        "value": "0 12px 30px rgba(17, 34, 28, .12)",
+        "purpose": "Keep the native account details menu legible above the shell."
+      }
     ],
     "motion": [
-      { "name": "standard", "value": "ease", "purpose": "Short border and lift transitions on interactive cards." },
-      { "name": "reduced", "value": "prefers-reduced-motion", "purpose": "Disable authored transitions for users who request less motion." }
+      {
+        "name": "hero-photo-entrance",
+        "value": "600ms cubic-bezier(.22, 1, .36, 1)",
+        "purpose": "Settle the two landing photos once; text and actions are visible immediately."
+      },
+      {
+        "name": "journey-handoff",
+        "value": "250ms cubic-bezier(.22, 1, .36, 1)",
+        "purpose": "Move the Brief, Delivery, or Proof preview horizontally after the state is committed."
+      },
+      {
+        "name": "control-state",
+        "value": "160ms ease",
+        "purpose": "Acknowledge button, link, and listing-card interaction."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "Remove authored animation and smooth scrolling while keeping state changes immediate."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "1080px"
+      },
+      {
+        "name": "phone",
+        "value": "760px"
+      },
+      {
+        "name": "small-phone",
+        "value": "470px"
+      }
     ]
   },
   "components": [
@@ -32,59 +173,98 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Teal action for a request, publish, accept, or save step.",
-      "html": "<button class=\"ds-btn-primary\" type=\"button\">Request service</button>",
-      "css": ".ds-btn-primary { background: var(--teal); border: 0; border-radius: 7px; color: #fff; font: 700 15px/1.5 Arial, sans-serif; min-height: 42px; padding: .58rem .95rem; transition: background .16s ease; } .ds-btn-primary:hover { background: #0a5d43; } .ds-btn-primary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
+      "description": "Cobalt action for the next concrete work step.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Find a project</button>",
+      "css": ".ds-btn-primary { background: var(--cobalt, #3046d3); border: 0; border-radius: 7px; color: var(--white, #fff); font: 700 16px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); min-height: 42px; padding: .58rem .95rem; transition: background .16s ease, opacity .16s ease; } .ds-btn-primary:hover { background: var(--cobalt-dark, #2536a8); } .ds-btn-primary:focus-visible { outline: 3px solid var(--focus, #3046d3); outline-offset: 2px; } .ds-btn-primary:active { opacity: .86; }"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Quiet bordered alternative for navigation and reversible actions.",
+      "description": "Borded white alternative for navigation and reversible actions.",
       "html": "<button class=\"ds-btn-secondary\" type=\"button\">View details</button>",
-      "css": ".ds-btn-secondary { background: #fff; border: 1px solid var(--line-dark); border-radius: 7px; color: var(--ink); font: 700 15px/1.5 Arial, sans-serif; min-height: 42px; padding: .58rem .95rem; transition: background .16s ease; } .ds-btn-secondary:hover { background: var(--wash); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
+      "css": ".ds-btn-secondary { background: var(--white, #fff); border: 1px solid var(--line-dark, #858ea0); border-radius: 7px; color: var(--ink, #172238); font: 700 16px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); min-height: 42px; padding: .58rem .95rem; transition: background .16s ease, opacity .16s ease; } .ds-btn-secondary:hover { background: var(--wash, #f8f7f3); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--focus, #3046d3); outline-offset: 2px; } .ds-btn-secondary:active { opacity: .86; }"
     },
     {
-      "name": "Search Field",
+      "name": "Labeled Search Field",
       "kind": "input",
       "refersTo": "input-field",
-      "description": "Labeled white field with a visible border and clear focus state.",
+      "description": "Native labelled field with a clear border and visible focus state.",
       "html": "<label class=\"ds-field\"><span>Search services and projects</span><input class=\"ds-input\" type=\"search\" placeholder=\"What service do you need?\" /></label>",
-      "css": ".ds-field { color: var(--muted); display: grid; font: 700 12px/1.4 Arial, sans-serif; gap: .28rem; } .ds-input { background: #fff; border: 1px solid var(--line-dark); border-radius: 7px; color: var(--ink); font: 400 15px/1.5 Arial, sans-serif; min-height: 42px; padding: .58rem .65rem; width: 100%; } .ds-input::placeholder { color: #7b8580; opacity: 1; } .ds-input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
+      "css": ".ds-field { color: var(--muted, #5c6678); display: grid; font: 700 12px/1.4 var(--font-sans, \"DM Sans\", Arial, sans-serif); gap: .28rem; } .ds-input { background: var(--white, #fff); border: 1px solid var(--line-dark, #858ea0); border-radius: 7px; color: var(--ink, #172238); font: 400 16px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); min-height: 42px; padding: .58rem .65rem; width: 100%; } .ds-input::placeholder { color: var(--muted, #5c6678); opacity: 1; } .ds-input:focus-visible { outline: 3px solid var(--focus, #3046d3); outline-offset: 2px; }"
     },
     {
-      "name": "Marketplace Navigation",
+      "name": "Workspace Navigation",
       "kind": "nav",
       "refersTo": "navigation",
-      "description": "Compact text navigation with teal hover and no decorative pill treatment.",
-      "html": "<nav class=\"ds-nav\" aria-label=\"Marketplace navigation\"><a href=\"#services\">Browse services</a><a href=\"#projects\">Find work</a><a href=\"#post\">Post a project</a></nav>",
-      "css": ".ds-nav { align-items: center; display: flex; gap: .9rem; } .ds-nav a { color: var(--ink-soft); font: 400 14px/1.5 Arial, sans-serif; text-decoration: none; } .ds-nav a:hover { color: var(--teal); } .ds-nav a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
+      "description": "Compact labelled text navigation for the private workspace shell.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Workspace navigation\"><a href=\"#overview\" aria-current=\"page\">Overview</a><a href=\"#orders\">Orders</a><a href=\"#inbox\">Inbox</a><a href=\"#earnings\">Earnings</a></nav>",
+      "css": ".ds-nav { align-items: center; display: flex; gap: 1.1rem; min-height: 42px; white-space: nowrap; } .ds-nav a { color: var(--ink-soft, #46536a); font: 400 14px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); text-decoration: none; } .ds-nav a:hover { color: var(--cobalt, #3046d3); } .ds-nav a:focus-visible { outline: 3px solid var(--focus, #3046d3); outline-offset: 2px; }"
     },
     {
       "name": "Skill Tag",
       "kind": "chip",
       "refersTo": "tag",
-      "description": "Small pill reserved for a skill or status label.",
-      "html": "<span class=\"ds-tag\">Web design</span>",
-      "css": ".ds-tag { background: #eef4f0; border-radius: 999px; color: var(--forest); display: inline-flex; font: 700 12px/1.5 Arial, sans-serif; padding: .25rem .55rem; }"
+      "description": "Compact metadata pill for skills and non-primary status labels.",
+      "html": "<span class=\"ds-tag\">Poster design</span>",
+      "css": ".ds-tag { background: var(--cobalt-tint, #edf0ff); border-radius: 999px; color: var(--cobalt, #3046d3); display: inline-flex; font: 700 12px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); padding: .25rem .55rem; }"
     },
     {
-      "name": "Marketplace Card",
+      "name": "Marketplace Listing Card",
       "kind": "card",
-      "refersTo": "marketplace-card",
-      "description": "Thin bordered listing record with an editorial media block, seller identity, and rupee price.",
+      "refersTo": "listing-card",
+      "description": "Thin-bordered listing record with media context, identity, title, and price.",
       "html": "<article class=\"ds-card\"><div class=\"ds-card-media\" aria-hidden=\"true\"></div><div class=\"ds-card-body\"><span class=\"ds-card-seller\">Ravi · Student</span><a class=\"ds-card-title\" href=\"#service\">Campus event poster</a><span class=\"ds-card-price\">From ₹1,800</span></div></article>",
-      "css": ".ds-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); overflow: hidden; transition: border-color .16s ease, transform .16s ease; } .ds-card:hover { border-color: #9bb6a9; transform: translateY(-2px); } .ds-card-media { aspect-ratio: 2.2 / 1; background: var(--forest); } .ds-card-body { padding: .85rem .9rem .95rem; } .ds-card-seller { color: var(--muted); display: block; font: 400 12px/1.5 Arial, sans-serif; margin-bottom: .55rem; } .ds-card-title { color: var(--ink); display: block; font: 700 16px/1.28 Arial, sans-serif; text-decoration: none; } .ds-card-title:hover { color: var(--teal); } .ds-card-price { border-top: 1px solid var(--line); display: block; font: 700 15px/1.5 Arial, sans-serif; margin-top: .8rem; padding-top: .7rem; text-align: right; }"
+      "css": ".ds-card { background: var(--paper, #f8f7f3); border: 1px solid var(--line, #dcdddc); border-radius: 8px; color: var(--ink, #172238); overflow: hidden; transition: border-color .16s ease, transform .16s ease; } .ds-card:hover { border-color: #a7b2ef; transform: translateY(-2px); } .ds-card-media { aspect-ratio: 2.2 / 1; background: var(--cobalt, #3046d3); } .ds-card-body { padding: .85rem .9rem .95rem; } .ds-card-seller { color: var(--muted, #5c6678); display: block; font: 400 12px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); margin-bottom: .55rem; } .ds-card-title { color: var(--ink, #172238); display: block; font: 700 16px/1.28 var(--font-sans, \"DM Sans\", Arial, sans-serif); text-decoration: none; } .ds-card-title:hover { color: var(--cobalt, #3046d3); } .ds-card-title:focus-visible { outline: 3px solid var(--focus, #3046d3); outline-offset: 2px; } .ds-card-price { border-top: 1px solid var(--line, #dcdddc); display: block; font: 700 15px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); margin-top: .8rem; padding-top: .7rem; text-align: right; }"
+    },
+    {
+      "name": "Brief to Proof Journey",
+      "kind": "custom",
+      "refersTo": "journey-preview",
+      "description": "Three-state preview that turns a clear brief into a retained proof record.",
+      "html": "<section class=\"ds-journey\" aria-label=\"Illustrative work journey\"><div class=\"ds-journey-tabs\" role=\"group\" aria-label=\"Illustrative work journey steps\"><button class=\"ds-journey-tab\" type=\"button\" aria-pressed=\"false\">Brief</button><button class=\"ds-journey-tab\" type=\"button\" aria-pressed=\"false\">Delivery</button><button class=\"ds-journey-tab\" type=\"button\" aria-pressed=\"true\">Proof</button></div><div class=\"ds-journey-preview\"><div class=\"ds-journey-visual\"><div class=\"ds-proof-record\"><span>Accepted work</span><strong>Campus event poster</strong><small>Selected public proof · Poster design</small></div></div><div class=\"ds-journey-panel\"><h3>Keep the useful record</h3><p>Accepted work can become part of your public profile.</p><button class=\"ds-btn-primary\" type=\"button\">Create your profile</button></div></div></section>",
+      "css": ".ds-journey { background: var(--white, #fff); color: var(--ink, #172238); padding: 1.5rem; } .ds-journey-tabs { border-top: 1px solid var(--line, #dcdddc); display: flex; gap: .25rem; padding-top: .8rem; } .ds-journey-tab { background: transparent; border-bottom: 2px solid transparent; color: var(--muted, #5c6678); font: 400 14px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); min-height: 42px; padding: .45rem .7rem; } .ds-journey-tab:hover, .ds-journey-tab[aria-pressed=\"true\"] { border-bottom-color: var(--cobalt, #3046d3); color: var(--ink, #172238); } .ds-journey-tab:focus-visible { outline: 3px solid var(--focus, #3046d3); outline-offset: 2px; } .ds-journey-preview { align-items: stretch; animation: ds-journey-handoff .25s cubic-bezier(.22, 1, .36, 1) both; display: grid; gap: 1.5rem; grid-template-columns: minmax(0, .82fr) minmax(0, 1fr); margin-top: 1.5rem; } .ds-journey-visual { background: var(--paper, #f8f7f3); min-height: 245px; padding: 1.25rem; } .ds-journey-panel { align-content: center; display: flex; flex-direction: column; gap: .55rem; justify-content: center; } .ds-journey-panel h3 { font: 700 2rem/1.1 var(--font-display, \"Schibsted Grotesk\", Arial, sans-serif); letter-spacing: -.04em; margin: 0; } .ds-journey-panel p { color: var(--ink-soft, #46536a); max-width: 45ch; } .ds-journey .ds-btn-primary { background: var(--cobalt, #3046d3); border: 0; border-radius: 7px; color: #fff; font: 700 16px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); min-height: 42px; padding: .58rem .95rem; } .ds-journey .ds-btn-primary:hover { background: var(--cobalt-dark, #2536a8); } .ds-journey .ds-btn-primary:focus-visible { outline: 3px solid var(--focus, #3046d3); outline-offset: 2px; } .ds-proof-record { background: var(--saffron, #f4c76b); color: var(--ink, #172238); min-height: 245px; padding: 1.25rem; } .ds-proof-record span, .ds-proof-record strong, .ds-proof-record small { display: block; } .ds-proof-record span { font: 700 12px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); letter-spacing: .08em; text-transform: uppercase; } .ds-proof-record strong { font: 700 1.45rem/1.05 var(--font-display, \"Schibsted Grotesk\", Arial, sans-serif); margin: 2rem 0 .8rem; } .ds-proof-record small { color: var(--ink-soft, #46536a); font: 400 13px/1.5 var(--font-sans, \"DM Sans\", Arial, sans-serif); } @keyframes ds-journey-handoff { from { opacity: .72; transform: translateX(1rem); } to { opacity: 1; transform: translateX(0); } } @media (prefers-reduced-motion: reduce) { .ds-journey-preview { animation: none; } }"
     }
   ],
   "narrative": {
-    "northStar": "The Clear Workbench",
-    "overview": "Skill-High is a practical campus marketplace. It feels like a well-organized workbench: the next useful action is visible, scope and effort are easy to compare, and every record can lead to a real detail or order view. White surfaces, quiet dividers, initials, and restrained category photography keep attention on the offer rather than on decorative polish.\n\nThe system borrows the density and directness of a familiar service marketplace while keeping Skill-High’s own voice, fictional development catalog, and honest product limits. It is explicitly not a slogan-heavy AI landing page, and category photography is editorial context—not seller portfolio evidence.",
-    "keyCharacteristics": [],
-    "rules": [
-      { "name": "The Clear Scope Rule", "body": "A listing should expose its title, seller identity, effort, price, and next action without invented claims or filler copy.", "section": "colors" }
+    "northStar": "The Brief-to-Proof Studio",
+    "overview": "Skill-High is a practical workbench for students, recent graduates, and the people hiring focused help. Its visual world follows a clear brief through delivery to a useful record: cobalt supplies the signal, warm paper gives the system room to breathe, and studio photography makes the work feel made rather than merely listed. The shared shell keeps discovery and workspace screens quiet, legible, and direct.\n\nThe landing uses real studio and desk imagery as editorial context; catalog imagery remains category context, not seller evidence. White working surfaces, fine rules, compact records, and a restrained cobalt action color carry the same voice into accounts and work management. The former forest/Fiverr-style marketplace treatment is not part of this world.",
+    "keyCharacteristics": [
+      "Cobalt actions and selected states on a warm paper canvas.",
+      "Schibsted Grotesk headlines paired with DM Sans operational copy.",
+      "Photographic context balanced by flat, bordered records.",
+      "A user-driven Brief → Delivery → Proof state change with an immediate reduced-motion fallback."
     ],
-    "dos": ["Do lead with the catalog and keep the first row useful without scrolling.", "Do link titles, proof records, matching projects, and order states to their real detail routes.", "Do label simulated payments, fictional seed data, and category illustrations honestly."],
-    "donts": ["Don’t add giant slogans, fake testimonials, generic delivery promises, or fabricated seller portfolios.", "Don’t hide API failures behind an empty catalog; show a retry action.", "Don’t use uppercase tracking as decoration or turn operational records into marketing copy."]
+    "rules": [
+      {
+        "name": "The Cobalt Signal Rule",
+        "body": "Cobalt is the action and navigation signal; saffron is reserved for emphasis and proof, and semantic success remains separate.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tight Type Rule",
+        "body": "Display headings use restrained negative tracking around -0.04em; body copy stays sentence-case and readable.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-at-Rest Rule",
+        "body": "Use a border or tonal shift first; reserve shadows for a surface that actually needs separation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use cobalt for the next concrete action and selected navigation, with warm paper as the default canvas.",
+      "Do pair studio/editorial photography with honest category context and dimensioned responsive crops.",
+      "Do keep catalog, order, profile, and proof records flat, bordered, and readable.",
+      "Do preserve native labels, visible focus, semantic current/pressed states, and reduced-motion behavior.",
+      "Do label fictional listings, illustrative proof, simulated payment, and local mail honestly."
+    ],
+    "donts": [
+      "Don't reintroduce the discarded forest/teal or Fiverr-like visual identity.",
+      "Don't add giant slogans, fake testimonials, invented ratings/metrics, or seller portfolio claims.",
+      "Don't use decorative eyebrow kickers, Unicode icon substitutes, receipt/perforation motifs, or review stripes.",
+      "Don't let motion become an autonomous reveal system; keep the authored 600ms hero entrance and 250ms journey handoff bounded.",
+      "Don't turn tags into primary navigation or publish proof beyond its explicit title, skills, and completion date consent."
+    ]
   }
 }

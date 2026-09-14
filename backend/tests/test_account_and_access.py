@@ -50,3 +50,30 @@ def test_non_participant_cannot_read_another_users_order() -> None:
         register(client, "stranger@skillhigh-access.com", "Stranger")
         response = client.get(f"/api/v1/orders/{order['id']}")
         assert response.status_code == 403
+
+
+def test_order_summaries_are_private_and_include_only_the_latest_message() -> None:
+    with TestClient(create_app(testing=True)) as client:
+        register(client, "buyer-summary@skillhigh-access.com", "Buyer Summary")
+        client.post("/api/v1/auth/logout")
+        register(client, "worker-summary@skillhigh-access.com", "Worker Summary")
+        service = client.post("/api/v1/services", json={
+            "title": "Summary service", "description": "A service used to test private order summaries.",
+            "amount_minor": 12000, "estimated_hours": 2, "currency": "INR", "skills": ["Writing"],
+        }).json()
+        client.post("/api/v1/auth/logout")
+        login(client, "buyer-summary@skillhigh-access.com")
+        order = client.post(f"/api/v1/services/{service['id']}/orders").json()
+        client.post("/api/v1/auth/logout")
+        login(client, "worker-summary@skillhigh-access.com")
+        assert client.post(f"/api/v1/orders/{order['id']}/accept").status_code == 200
+        assert client.post(f"/api/v1/orders/{order['id']}/messages", json={"body": "Latest private note"}).status_code == 201
+        client.post("/api/v1/auth/logout")
+        login(client, "buyer-summary@skillhigh-access.com")
+        summary = client.get("/api/v1/orders").json()[0]
+        assert summary["worker"]["display_name"] == "Worker Summary"
+        assert summary["last_message"]["body"] == "Latest private note"
+        assert "email" not in summary["worker"]
+        client.post("/api/v1/auth/logout")
+        register(client, "stranger-summary@skillhigh-access.com", "Stranger Summary")
+        assert client.get("/api/v1/orders").json() == []

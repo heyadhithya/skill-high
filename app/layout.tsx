@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { DM_Sans, Manrope } from "next/font/google";
+import { DM_Sans, Schibsted_Grotesk } from "next/font/google";
 import "./globals.css";
 
 const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
-const display = Manrope({ subsets: ["latin"], variable: "--font-display" });
+const display = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
   title: "Skill-High",
-  description: "Student-first work and career ecosystem",
+  description: "Focused work and portable proof for students and recent graduates.",
 };
 
 export default function Layout({

@@ -2,8 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Workspace from "./workspace";
+import Landing from "./landing";
+import AuthScreens from "./auth";
+import PublicProfileScreen from "./public-profile";
 import {
   ApiError,
+  Navigate,
+  Route,
   Service,
   Project,
   User,
@@ -14,49 +19,15 @@ import {
   initials,
   labelStatus,
   money,
+  readRoute,
+  routeHref,
 } from "./marketplace";
 
-type Route = {
-  view: string;
-  id?: number;
-  q: string;
-  category: string;
-  maxPrice: string;
-  sort: string;
-  next?: string;
-};
-
-function readRoute(): Route {
-  const params = new URLSearchParams(window.location.search);
-  const rawId = Number(params.get("id"));
-  return {
-    view: params.get("view") || "services",
-    id: Number.isFinite(rawId) && rawId > 0 ? rawId : undefined,
-    q: params.get("q") || "",
-    category: params.get("category") || "All services",
-    maxPrice: params.get("maxPrice") || "",
-    sort: params.get("sort") || "newest",
-    next: params.get("next") || undefined,
-  };
-}
-
-function href(route: Partial<Route>, current: Route): string {
-  const params = new URLSearchParams();
-  const next = { ...current, ...route };
-  if (next.view && next.view !== "services") params.set("view", next.view);
-  if (next.id) params.set("id", String(next.id));
-  if (next.q) params.set("q", next.q);
-  if (next.category && next.category !== "All services")
-    params.set("category", next.category);
-  if (next.maxPrice) params.set("maxPrice", next.maxPrice);
-  if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
-  if (next.next) params.set("next", next.next);
-  return params.toString() ? `/?${params}` : "/";
-}
+const href = routeHref;
 
 export default function Home() {
   const [route, setRoute] = useState<Route>({
-    view: "services",
+    view: "home",
     q: "",
     category: "All services",
     maxPrice: "",
@@ -67,17 +38,19 @@ export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [catalogError, setCatalogError] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [authError, setAuthError] = useState("");
 
   const navigate = (next: Partial<Route>, replace = false) => {
     const updated = { ...route, ...next };
-    const url = href(updated, updated);
+    const url = href(next, route);
     window.history[replace ? "replaceState" : "pushState"]({}, "", url);
-    setRoute(readRoute());
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setRoute(readRoute(url));
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
 
   const loadCatalog = async () => {
+    setCatalogLoading(true);
     try {
       const [serviceRows, projectRows] = await Promise.all([
         api<Service[]>("/services"),
@@ -92,11 +65,14 @@ export default function Home() {
           ? error.message
           : "The marketplace could not load. Try again.",
       );
+    } finally {
+      setCatalogLoading(false);
     }
   };
   const loadSession = async () => {
     try {
       setUser(await api<User>("/me"));
+      setAuthError("");
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) setUser(null);
       else
@@ -110,8 +86,8 @@ export default function Home() {
     }
   };
   useEffect(() => {
-    setRoute(readRoute());
-    const onPopState = () => setRoute(readRoute());
+    setRoute(readRoute(window.location.search));
+    const onPopState = () => setRoute(readRoute(window.location.search));
     window.addEventListener("popstate", onPopState);
     void loadSession();
     void loadCatalog();
@@ -120,46 +96,41 @@ export default function Home() {
   const signOut = async () => {
     await api("/auth/logout", { method: "POST" });
     setUser(null);
-    navigate({ view: "services", id: undefined, next: undefined });
+    navigate({ view: "home", id: undefined, next: undefined, mode: undefined, token: undefined });
   };
   const afterAuth = async () => {
+    setAuthError("");
     await loadSession();
     if (route.next) {
-      const parsed = new URL(route.next, window.location.origin);
-      navigate({
-        view: parsed.searchParams.get("view") || "services",
-        id: Number(parsed.searchParams.get("id")) || undefined,
-        q: parsed.searchParams.get("q") || "",
-        category: parsed.searchParams.get("category") || "All services",
-        maxPrice: parsed.searchParams.get("maxPrice") || "",
-        sort: parsed.searchParams.get("sort") || "newest",
-        next: undefined,
-      });
-    } else navigate({ view: "services", next: undefined });
+      const returned = readRoute(route.next);
+      navigate({ ...returned, next: undefined, mode: undefined, token: undefined });
+    } else navigate({ view: "dashboard", next: undefined, mode: undefined, token: undefined });
   };
-  const needsAuth = () => navigate({ view: "auth", next: href(route, route) });
+  const needsAuth = () => navigate({ view: "auth", mode: "login", next: href(route, route) });
 
-  if (sessionLoading)
+  const privateRoute = ["dashboard", "orders", "order", "create", "create-service", "profile", "projects-mine", "applications", "services-mine", "applicants", "admin", "inbox", "earnings", "edit-service", "edit-project"].includes(route.view);
+  if (sessionLoading && privateRoute)
     return <div className="page-loading">Loading Skill-High…</div>;
   return (
     <div className="site">
       <Header user={user} route={route} navigate={navigate} signOut={signOut} />
-      {route.view !== "auth" && (
+      {["services", "projects"].includes(route.view) && (
         <CategoryBar route={route} navigate={navigate} />
       )}
-      <main>
-        {authError && route.view !== "auth" && (
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <main id="main-content">
+        {authError && !["auth", "forgot-password", "reset-password", "verify-email"].includes(route.view) && (
           <InlineNotice tone="error" text={authError} />
         )}
-        {route.view === "auth" ? (
-          <AuthScreen
-            onDone={afterAuth}
-            initialMode={route.next ? "login" : "register"}
-            error={authError}
-            setError={setAuthError}
-          />
+        {route.view === "home" ? (
+          <Landing services={services} user={user} navigate={navigate} catalogLoading={catalogLoading} catalogError={catalogError} reloadCatalog={loadCatalog} />
+        ) : ["auth", "forgot-password", "reset-password", "verify-email"].includes(route.view) ? (
+          <AuthScreens key={`${route.view}:${route.mode || ""}:${route.token || ""}`} route={route} navigate={navigate} onDone={afterAuth} onSessionRefresh={loadSession} onSessionCleared={() => { setUser(null); setSessionLoading(false); }} error={authError} setError={setAuthError} />
+        ) : route.view === "person" && route.id ? (
+          <PublicProfileScreen key={`person:${route.id}`} id={route.id} navigate={navigate} />
         ) : route.view === "service" && route.id ? (
           <ServiceDetail
+            key={`service:${route.id}`}
             id={route.id}
             currentUser={user}
             services={services}
@@ -168,6 +139,7 @@ export default function Home() {
           />
         ) : route.view === "project" && route.id ? (
           <ProjectDetail
+            key={`project:${route.id}`}
             id={route.id}
             currentUser={user}
             projects={projects}
@@ -185,17 +157,24 @@ export default function Home() {
             "services-mine",
             "applicants",
             "admin",
+            "dashboard",
+            "inbox",
+            "earnings",
+            "edit-service",
+            "edit-project",
           ].includes(route.view) ? (
           user ? (
-            <Workspace
+              <Workspace
+                key={`${route.view}:${route.id || ""}`}
               user={user}
               view={route.view}
               id={route.id}
               navigate={navigate}
               onUserUpdated={setUser}
+              onCatalogChanged={loadCatalog}
             />
           ) : (
-            <SignInPrompt navigate={navigate} />
+            <SignInPrompt navigate={navigate} route={route} />
           )
         ) : route.view === "projects" ? (
           <ProjectCatalog
@@ -205,7 +184,7 @@ export default function Home() {
             catalogError={catalogError}
             loadCatalog={loadCatalog}
           />
-        ) : (
+        ) : route.view === "services" ? (
           <ServiceCatalog
             services={services}
             route={route}
@@ -215,7 +194,7 @@ export default function Home() {
             loadCatalog={loadCatalog}
             needsAuth={needsAuth}
           />
-        )}
+        ) : <NotFound navigate={navigate} />}
       </main>
       <Footer navigate={navigate} />
     </div>
@@ -249,6 +228,7 @@ function Header({
       category: "All services",
     });
   };
+  const landing = route.view === "home";
   return (
     <header className="site-header">
       <div className="header-inner">
@@ -257,18 +237,13 @@ function Header({
           href="/"
           onClick={(event) => {
             event.preventDefault();
-            navigate({
-              view: "services",
-              id: undefined,
-              q: "",
-              category: "All services",
-            });
+            navigate({ view: "home", id: undefined, q: "", category: "All services", next: undefined });
           }}
         >
           <span className="wordmark-mark">SH</span>
           <span>Skill-High</span>
         </a>
-        <form className="global-search" onSubmit={submit} role="search">
+        {!landing && <form className="global-search" onSubmit={submit} role="search">
           <label className="sr-only" htmlFor="global-search">
             Search services and projects
           </label>
@@ -279,9 +254,9 @@ function Header({
             placeholder="What service do you need?"
           />
           <button type="submit">Search</button>
-        </form>
-        <nav className="primary-nav" aria-label="Main navigation">
-          <a
+        </form>}
+        <nav className={`primary-nav${user && !landing ? " workspace-nav" : ""}`} aria-label={user && !landing ? "Workspace navigation" : "Main navigation"}>
+          {landing ? <><a href={href({ view: "projects" }, route)} onClick={(event) => { event.preventDefault(); navigate({ view: "projects", id: undefined }); }}>Find work</a><a href={href({ view: "services" }, route)} onClick={(event) => { event.preventDefault(); navigate({ view: "services", id: undefined }); }}>Find talent</a><a href="/#journey" onClick={(event) => { event.preventDefault(); document.getElementById("journey")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); }}>How it works</a></> : user ? <><a href={href({ view: "dashboard" }, route)} aria-current={route.view === "dashboard" ? "page" : undefined} onClick={(event) => { event.preventDefault(); navigate({ view: "dashboard", id: undefined }); }}>Overview</a><a href={href({ view: "orders" }, route)} aria-current={route.view === "orders" || route.view === "order" ? "page" : undefined} onClick={(event) => { event.preventDefault(); navigate({ view: "orders", id: undefined }); }}>Orders</a><a href={href({ view: "inbox" }, route)} aria-current={route.view === "inbox" ? "page" : undefined} onClick={(event) => { event.preventDefault(); navigate({ view: "inbox", id: undefined }); }}>Inbox</a><a href={href({ view: "earnings" }, route)} aria-current={route.view === "earnings" ? "page" : undefined} onClick={(event) => { event.preventDefault(); navigate({ view: "earnings", id: undefined }); }}>Earnings</a></> : <><a
             href={href({ view: "services" }, route)}
             onClick={(event) => {
               event.preventDefault();
@@ -307,26 +282,19 @@ function Header({
             }}
           >
             Post a project
-          </a>
+          </a></>}
         </nav>
         {user ? (
           <div className="header-account">
-            <a
-              className="orders-link"
-              href={href({ view: "orders" }, route)}
-              onClick={(event) => {
-                event.preventDefault();
-                go({ view: "orders", id: undefined });
-              }}
-            >
-              Orders
-            </a>
             <details className="account-menu" ref={menuRef}>
               <summary>
                 <span className="avatar">{initials(user.display_name)}</span>
                 <span className="account-name">{user.display_name}</span>
               </summary>
               <div className="menu-panel">
+                <button onClick={() => go({ view: "dashboard" })}>Overview</button>
+                <button onClick={() => go({ view: "inbox" })}>Inbox</button>
+                <button onClick={() => go({ view: "earnings" })}>Earnings</button>
                 <button onClick={() => go({ view: "profile" })}>Profile</button>
                 <button onClick={() => go({ view: "services-mine" })}>
                   My services
@@ -355,15 +323,15 @@ function Header({
         ) : (
           <div className="header-auth">
             <a
-              href={href({ view: "auth", next: href(route, route) }, route)}
+              href={href({ view: "auth", mode: "login", next: href(route, route) }, route)}
               onClick={(event) => {
                 event.preventDefault();
-                navigate({ view: "auth", next: href(route, route) });
+                navigate({ view: "auth", mode: "login", next: href(route, route) });
               }}
             >
               Sign in
             </a>
-            <button onClick={() => navigate({ view: "auth", next: undefined })}>
+            <button onClick={() => navigate({ view: "auth", mode: "register", next: undefined })}>
               Join
             </button>
           </div>
@@ -464,7 +432,7 @@ function ServiceCatalog({
               navigate({ view: "projects", id: undefined });
             }}
           >
-            Looking for projects? Find work →
+            Looking for projects? Find work
           </a>
         </div>
         <div className="filters">
@@ -576,7 +544,7 @@ function ProjectCatalog({
             navigate({ view: "services", id: undefined });
           }}
         >
-          Browse services →
+          Browse services
         </a>
       </div>
       <div className="filters">
@@ -668,7 +636,7 @@ function ServiceCard({
         </a>
         <p className="card-meta">
           {service.seller_rating
-            ? `★ ${service.seller_rating} (${service.seller_review_count})`
+            ? `Rated ${service.seller_rating} (${service.seller_review_count})`
             : "New"}{" "}
           · {service.estimated_hours}h estimated
         </p>
@@ -806,7 +774,7 @@ function ServiceDetail({
         className="back-link"
         onClick={() => navigate({ view: "services", id: undefined })}
       >
-        ← Back to services
+        Back to services
       </button>
       <div className="detail-grid service-detail-grid">
         <div className="service-detail-primary">
@@ -821,7 +789,7 @@ function ServiceDetail({
               <span>
                 {labelStatus(service.provider.career_stage)} ·{" "}
                 {service.seller_rating
-                  ? `★ ${service.seller_rating} from ${service.seller_review_count} seller review${service.seller_review_count === 1 ? "" : "s"}`
+                  ? `Rated ${service.seller_rating} from ${service.seller_review_count} seller review${service.seller_review_count === 1 ? "" : "s"}`
                   : "New seller"}
               </span>
             </div>
@@ -849,7 +817,7 @@ function ServiceDetail({
                 {service.seller_reviews.map((review) => (
                   <blockquote key={review.id}>
                     <strong>
-                      ★ {review.rating} · {review.author_name}
+                      Rated {review.rating} · {review.author_name}
                     </strong>
                     <p>{review.body}</p>
                   </blockquote>
@@ -970,7 +938,7 @@ function ProjectDetail({
         className="back-link"
         onClick={() => navigate({ view: "projects", id: undefined })}
       >
-        ← Back to projects
+        Back to projects
       </button>
       <div className="detail-grid project-detail-grid">
         <div className="detail-copy">
@@ -1064,157 +1032,12 @@ function ProjectDetail({
   );
 }
 
-function AuthScreen({
-  onDone,
-  initialMode,
-  error,
-  setError,
-}: {
-  onDone: () => Promise<void>;
-  initialMode: "login" | "register";
-  error: string;
-  setError: (value: string) => void;
-}) {
-  const [mode, setMode] = useState(initialMode);
-  const [pending, setPending] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showDemo, setShowDemo] = useState(false);
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setPending(true);
-    setError("");
-    const body = Object.fromEntries(new FormData(event.currentTarget));
-    try {
-      await api(`/auth/${mode}`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      await onDone();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Could not sign in.");
-    } finally {
-      setPending(false);
-    }
-  };
-  return (
-    <section className="auth-screen">
-      <div className="auth-panel">
-        <h1>{mode === "login" ? "Welcome back" : "Join the marketplace"}</h1>
-        <p className="auth-intro">
-          {mode === "login"
-            ? "Keep your work, orders, and applications in one place."
-            : "Create a profile to hire, apply, and build portable proof of work."}
-        </p>
-        <div className="auth-tabs">
-          <button
-            className={mode === "login" ? "selected" : ""}
-            onClick={() => {
-              setMode("login");
-              setError("");
-            }}
-          >
-            Sign in
-          </button>
-          <button
-            className={mode === "register" ? "selected" : ""}
-            onClick={() => {
-              setMode("register");
-              setError("");
-            }}
-          >
-            Create account
-          </button>
-        </div>
-        <form className="form-stack" onSubmit={submit}>
-          <label>
-            Email
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              name="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={12}
-              required
-            />
-          </label>
-          {mode === "register" && (
-            <>
-              <label>
-                Display name
-                <input name="display_name" minLength={2} required />
-              </label>
-              <label>
-                Career stage
-                <select name="career_stage">
-                  <option value="student">Student</option>
-                  <option value="graduate">Graduate</option>
-                </select>
-              </label>
-              <input type="hidden" name="timezone" value="Asia/Kolkata" />
-            </>
-          )}
-          <button
-            className="button button-primary button-wide"
-            disabled={pending}
-          >
-            {pending
-              ? "Working…"
-              : mode === "login"
-                ? "Sign in"
-                : "Create account"}
-          </button>
-        </form>
-        {error && <InlineNotice tone="error" text={error} />}
-        {process.env.NODE_ENV === "development" && (
-          <details className="demo-details">
-            <summary onClick={() => setShowDemo(!showDemo)}>
-              Development demo credentials
-            </summary>
-            {showDemo && (
-              <div className="demo-options">
-                <p>Local-only accounts for testing the marketplace roles.</p>
-                {[
-                  ["Worker", "ravi@skillhigh-campus.com"],
-                  ["Client", "maya@skillhigh-campus.com"],
-                  ["Admin", "admin@skillhigh-campus.com"],
-                ].map(([label, demoEmail]) => (
-                  <button
-                    className="button button-secondary"
-                    type="button"
-                    key={label}
-                    onClick={() => {
-                      setMode("login");
-                      setEmail(demoEmail);
-                      setPassword("skillhigh-demo-123");
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </details>
-        )}
-      </div>
-    </section>
-  );
-}
-
 function SignInPrompt({
   navigate,
+  route,
 }: {
   navigate: (next: Partial<Route>) => void;
+  route: Route;
 }) {
   return (
     <section className="empty-page">
@@ -1222,7 +1045,7 @@ function SignInPrompt({
       <p>Orders, applications, and your profile are private to your account.</p>
       <button
         className="button button-primary"
-        onClick={() => navigate({ view: "auth" })}
+        onClick={() => navigate({ view: "auth", mode: "login", next: routeHref(route, route) })}
       >
         Sign in
       </button>
@@ -1233,6 +1056,7 @@ function Footer({ navigate }: { navigate: (next: Partial<Route>) => void }) {
   return (
     <footer className="site-footer">
       <span>Skill-High · practical work, made clear.</span>
+      <span className="site-footer-note">Local demo marketplace · fictional listings</span>
       <nav>
         <button onClick={() => navigate({ view: "services" })}>Services</button>
         <button onClick={() => navigate({ view: "projects" })}>
@@ -1244,6 +1068,10 @@ function Footer({ navigate }: { navigate: (next: Partial<Route>) => void }) {
       </nav>
     </footer>
   );
+}
+
+function NotFound({ navigate }: { navigate: (next: Partial<Route>) => void }) {
+  return <section className="empty-page"><h1>That page is not available.</h1><p>Choose a live marketplace destination to continue.</p><button className="button button-primary" onClick={() => navigate({ view: "home", id: undefined })}>Go home</button></section>;
 }
 function InlineNotice({
   tone,

@@ -1,14 +1,18 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   Application,
   Message,
+  Navigate,
   Order,
+  Proof,
   Project,
+  Route,
   Service,
   User,
   api,
+  earningsByCurrency,
   initials,
   imageFor,
   labelStatus,
@@ -16,26 +20,28 @@ import {
   safeUrl,
 } from "./marketplace";
 
-type Navigate = (next: { view?: string; id?: number }) => void;
-
 export default function Workspace({
   user,
   view,
   id,
   navigate,
   onUserUpdated,
+  onCatalogChanged,
 }: {
   user: User;
   view: string;
   id?: number;
   navigate: Navigate;
   onUserUpdated: (user: User) => void;
+  onCatalogChanged: () => Promise<void>;
 }) {
-  if (view === "create" || view === "create-service")
+  if (view === "create" || view === "create-service" || view === "edit-service" || view === "edit-project")
     return (
       <CreateWorkspace
         navigate={navigate}
-        initialKind={view === "create-service" ? "service" : "project"}
+        initialKind={view === "create-service" || view === "edit-service" ? "service" : "project"}
+        listingId={view.startsWith("edit-") ? id : undefined}
+        onCatalogChanged={onCatalogChanged}
       />
     );
   if (view === "profile")
@@ -47,14 +53,17 @@ export default function Workspace({
       />
     );
   if (view === "projects-mine")
-    return <ProjectsWorkspace navigate={navigate} />;
+    return <ProjectsWorkspace navigate={navigate} onCatalogChanged={onCatalogChanged} />;
   if (view === "applications")
     return <ApplicationsWorkspace navigate={navigate} />;
   if (view === "services-mine")
-    return <ServicesWorkspace user={user} navigate={navigate} />;
+    return <ServicesWorkspace user={user} navigate={navigate} onCatalogChanged={onCatalogChanged} />;
   if (view === "applicants" && id)
-    return <ApplicantsWorkspace projectId={id} navigate={navigate} />;
+    return <ApplicantsWorkspace projectId={id} navigate={navigate} onCatalogChanged={onCatalogChanged} />;
   if (view === "admin") return <AdminWorkspace />;
+  if (view === "inbox") return <InboxWorkspace user={user} navigate={navigate} />;
+  if (view === "earnings") return <EarningsWorkspace user={user} />;
+  if (view === "dashboard") return <DashboardWorkspace user={user} navigate={navigate} />;
   return (
     <OrdersWorkspace
       user={user}
@@ -67,14 +76,27 @@ export default function Workspace({
 function CreateWorkspace({
   navigate,
   initialKind = "project",
+  listingId,
+  onCatalogChanged,
 }: {
   navigate: Navigate;
   initialKind?: "project" | "service";
+  listingId?: number;
+  onCatalogChanged: () => Promise<void>;
 }) {
   const [kind, setKind] = useState<"project" | "service">(initialKind);
+  const [listing, setListing] = useState<Service | Project | null>(null);
+  const [loading, setLoading] = useState(Boolean(listingId));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!listingId) return;
+    void api<Service[] | Project[]>(kind === "service" ? "/me/services" : "/me/projects")
+      .then((rows) => setListing(rows.find((row) => row.id === listingId) ?? null))
+      .catch((error) => setError(error instanceof Error ? error.message : "Could not load this listing."))
+      .finally(() => setLoading(false));
+  }, [listingId, kind]);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPending(true);
@@ -114,15 +136,13 @@ function CreateWorkspace({
         );
     try {
       const result = await api<{ id: number }>(
-        kind === "project" ? "/projects" : "/services",
-        { method: "POST", body: JSON.stringify(body) },
+        listingId ? `${kind === "project" ? "/projects" : "/services"}/${listingId}` : kind === "project" ? "/projects" : "/services",
+        { method: listingId ? "PUT" : "POST", body: JSON.stringify(body) },
       );
-      setNotice("Published.");
+      setNotice(listingId ? "Changes saved." : "Published.");
+      await onCatalogChanged();
       form.reset();
-      navigate({
-        view: kind === "project" ? "project" : "service",
-        id: result.id,
-      });
+      navigate(listingId ? { view: kind === "project" ? "projects-mine" : "services-mine", id: undefined } : { view: kind === "project" ? "project" : "service", id: result.id });
     } catch (error) {
       setError(
         error instanceof Error
@@ -137,14 +157,14 @@ function CreateWorkspace({
     <section className="workspace-shell">
       <div className="workspace-heading">
         <div>
-          <h1>Put a clear offer into the marketplace.</h1>
+          <h1>{listingId ? `Edit your ${kind === "project" ? "project" : "service"}.` : "Put a clear offer into the marketplace."}</h1>
           <p>
             Use concrete scope, rupees, and estimated effort. No delivery
             promise is implied by effort.
           </p>
         </div>
       </div>
-      <div className="create-tabs">
+      {!listingId && <div className="create-tabs">
         <button
           className={kind === "project" ? "selected" : ""}
           onClick={() => setKind("project")}
@@ -157,12 +177,13 @@ function CreateWorkspace({
         >
           Offer a service
         </button>
-      </div>
-      <form className="form-panel form-stack" onSubmit={submit}>
+      </div>}
+      {loading ? <div className="page-loading">Loading listing…</div> : <form className="form-panel form-stack" onSubmit={submit}>
         <label>
           <span>Title</span>
           <input
             name="title"
+            defaultValue={listing?.title}
             required
             minLength={4}
             placeholder={
@@ -178,6 +199,7 @@ function CreateWorkspace({
           </span>
           <textarea
             name="description"
+            defaultValue={listing?.description}
             required
             minLength={10}
             placeholder="Describe the concrete result, materials, and handoff."
@@ -188,6 +210,7 @@ function CreateWorkspace({
             <span>Budget / price in rupees</span>
             <input
               name="amount_rupees"
+              defaultValue={listing ? listing.amount_minor / 100 : undefined}
               type="number"
               min="0.01"
               step="0.01"
@@ -199,6 +222,7 @@ function CreateWorkspace({
             <span>Estimated effort in hours</span>
             <input
               name="estimated_hours"
+              defaultValue={listing?.estimated_hours}
               type="number"
               min="1"
               max="200"
@@ -211,7 +235,7 @@ function CreateWorkspace({
         {kind === "project" && (
           <label>
             <span>Project scale</span>
-            <select name="scale">
+            <select name="scale" defaultValue={(listing as Project | null)?.scale || "micro"}>
               <option value="micro">Micro</option>
               <option value="small">Small</option>
               <option value="medium">Medium</option>
@@ -224,6 +248,7 @@ function CreateWorkspace({
           <span>{kind === "project" ? "Required skills" : "Skills used"}</span>
           <input
             name={kind === "project" ? "required_skills" : "skills"}
+            defaultValue={kind === "project" ? (listing as Project | null)?.required_skills.join(", ") : (listing as Service | null)?.skills.join(", ")}
             placeholder="Separate skills with commas"
           />
         </label>
@@ -231,20 +256,17 @@ function CreateWorkspace({
         {error && <p className="notice notice-error">{error}</p>}
         {notice && <p className="notice notice-success">{notice}</p>}
         <button className="button button-primary" disabled={pending}>
-          {pending
-            ? "Publishing…"
-            : kind === "project"
-              ? "Publish project"
-              : "Publish service"}
+          {pending ? "Saving…" : listingId ? "Save changes" : kind === "project" ? "Publish project" : "Publish service"}
         </button>
-      </form>
+      </form>}
     </section>
   );
 }
 
-function ProjectsWorkspace({ navigate }: { navigate: Navigate }) {
+function ProjectsWorkspace({ navigate, onCatalogChanged }: { navigate: Navigate; onCatalogChanged: () => Promise<void> }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState<number | null>(null);
   useEffect(() => {
     void api<Project[]>("/me/projects")
       .then(setProjects)
@@ -256,6 +278,7 @@ function ProjectsWorkspace({ navigate }: { navigate: Navigate }) {
         ),
       );
   }, []);
+  const close = async (projectId: number) => { if (!window.confirm("Close this project and its pending applications?")) return; setPending(projectId); setError(""); try { await api(`/projects/${projectId}/close`, { method: "POST" }); setProjects((rows) => rows.map((item) => item.id === projectId ? { ...item, status: "closed" } : item)); await onCatalogChanged(); } catch (error) { setError(error instanceof Error ? error.message : "Could not close this project."); } finally { setPending(null); } };
   return (
     <section className="workspace-shell">
       <WorkspaceTitle
@@ -287,6 +310,8 @@ function ProjectsWorkspace({ navigate }: { navigate: Navigate }) {
                 </p>
               </div>
               <div className="record-actions">
+                {project.status === "open" && (project.application_count ?? 0) === 0 && <button className="button button-secondary" onClick={() => navigate({ view: "edit-project", id: project.id })}>Edit</button>}
+                {project.status === "open" && <button className="button button-secondary" disabled={pending === project.id} onClick={() => void close(project.id)}>{pending === project.id ? "Closing…" : "Close"}</button>}
                 {project.order_id ? (
                   <button
                     className="button button-secondary"
@@ -326,9 +351,11 @@ function ProjectsWorkspace({ navigate }: { navigate: Navigate }) {
 function ApplicantsWorkspace({
   projectId,
   navigate,
+  onCatalogChanged,
 }: {
   projectId: number;
   navigate: Navigate;
+  onCatalogChanged: () => Promise<void>;
 }) {
   const [rows, setRows] = useState<
     Array<{
@@ -363,6 +390,7 @@ function ApplicantsWorkspace({
       const order = await api<Order>(`/applications/${applicationId}/accept`, {
         method: "POST",
       });
+      await onCatalogChanged();
       navigate({ view: "order", id: order.id });
     } catch (error) {
       setError(
@@ -380,7 +408,7 @@ function ApplicantsWorkspace({
         className="back-link"
         onClick={() => navigate({ view: "projects-mine" })}
       >
-        ← My projects
+        My projects
       </button>
       <WorkspaceTitle
         title="Project applicants"
@@ -436,17 +464,13 @@ function ApplicantsWorkspace({
 function ApplicationsWorkspace({ navigate }: { navigate: Navigate }) {
   const [applications, setApplications] = useState<Application[]>([]);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState<number | null>(null);
+  const load = () => api<Application[]>("/me/applications").then(setApplications).catch((error) => setError(error instanceof Error ? error.message : "Could not load your applications."));
   useEffect(() => {
-    void api<Application[]>("/me/applications")
-      .then(setApplications)
-      .catch((error) =>
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Could not load your applications.",
-        ),
-      );
+    void load();
   }, []);
+  const withdraw = async (id: number) => { setPending(id); setError(""); try { await api(`/applications/${id}/withdraw`, { method: "POST" }); await load(); } catch (error) { setError(error instanceof Error ? error.message : "Could not withdraw this application."); } finally { setPending(null); } };
+  const applyAgain = async (id: number) => { setPending(id); setError(""); try { await api(`/projects/${id}/applications`, { method: "POST" }); await load(); } catch (error) { setError(error instanceof Error ? error.message : "Could not apply again."); } finally { setPending(null); } };
   return (
     <section className="workspace-shell">
       <WorkspaceTitle
@@ -484,6 +508,10 @@ function ApplicationsWorkspace({ navigate }: { navigate: Navigate }) {
                   >
                     Open order
                   </button>
+                ) : item.status === "pending" ? (
+                  <button className="button button-secondary" disabled={pending === item.id} onClick={() => void withdraw(item.id)}>{pending === item.id ? "Withdrawing…" : "Withdraw"}</button>
+                ) : item.status === "withdrawn" && item.project.status === "open" ? (
+                  <button className="button button-secondary" disabled={pending === item.id} onClick={() => void applyAgain(item.project.id)}>{pending === item.id ? "Applying…" : "Apply again"}</button>
                 ) : (
                   <button
                     className="button button-secondary"
@@ -511,34 +539,29 @@ function ApplicationsWorkspace({ navigate }: { navigate: Navigate }) {
 function ServicesWorkspace({
   user,
   navigate,
+  onCatalogChanged,
 }: {
   user: User;
   navigate: Navigate;
+  onCatalogChanged: () => Promise<void>;
 }) {
   const [services, setServices] = useState<Service[]>([]);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState<number | null>(null);
+  const load = () => api<Service[]>("/me/services").then(setServices).catch((error) => setError(error instanceof Error ? error.message : "Could not load your services."));
   useEffect(() => {
-    void api<Service[]>("/services")
-      .then((rows) =>
-        setServices(rows.filter((row) => row.provider_id === user.id)),
-      )
-      .catch((error) =>
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Could not load your services.",
-        ),
-      );
+    void load();
   }, [user.id]);
+  const visibility = async (service: Service) => { setPending(service.id); setError(""); try { await api(`/services/${service.id}/visibility`, { method: "PATCH", body: JSON.stringify({ is_active: !service.is_active }) }); await load(); await onCatalogChanged(); } catch (error) { setError(error instanceof Error ? error.message : "Could not change visibility."); } finally { setPending(null); } };
   return (
     <section className="workspace-shell">
       <WorkspaceTitle
         title="My services"
-        text="Your live service listings. Editing and deletion are not available in this MVP."
+        text="Keep future terms current while preserving every existing order snapshot."
         action={
           <button
             className="button button-primary"
-            onClick={() => navigate({ view: "create" })}
+            onClick={() => navigate({ view: "create-service" })}
           >
             Offer a service
           </button>
@@ -551,10 +574,10 @@ function ServicesWorkspace({
             <article className="service-card compact-service" key={service.id}>
               <a
                 className="card-image-link"
-                href={`/?view=service&id=${service.id}`}
+                href={`/?view=${service.is_active ? "service" : "edit-service"}&id=${service.id}`}
                 onClick={(event) => {
                   event.preventDefault();
-                  navigate({ view: "service", id: service.id });
+                  navigate({ view: service.is_active ? "service" : "edit-service", id: service.id });
                 }}
               >
                 <img
@@ -563,13 +586,13 @@ function ServicesWorkspace({
                 />
               </a>
               <div className="card-content">
-                <span className="status-tag">Live</span>
+                <span className="status-tag">{service.is_active ? "Live" : "Paused"}</span>
                 <a
                   className="card-title"
-                  href={`/?view=service&id=${service.id}`}
+                  href={`/?view=${service.is_active ? "service" : "edit-service"}&id=${service.id}`}
                   onClick={(event) => {
                     event.preventDefault();
-                    navigate({ view: "service", id: service.id });
+                    navigate({ view: service.is_active ? "service" : "edit-service", id: service.id });
                   }}
                 >
                   {service.title}
@@ -578,6 +601,7 @@ function ServicesWorkspace({
                   {money(service.amount_minor, service.currency)} ·{" "}
                   {service.estimated_hours}h effort
                 </p>
+                <div className="record-actions"><button className="button button-secondary" onClick={() => navigate({ view: "edit-service", id: service.id })}>Edit</button><button className="button button-secondary" disabled={pending === service.id} onClick={() => void visibility(service)}>{pending === service.id ? "Saving…" : service.is_active ? "Pause" : "Resume"}</button></div>
               </div>
             </article>
           ))
@@ -695,9 +719,11 @@ function OrderDetail({
   const [review, setReview] = useState("");
   const [rating, setRating] = useState("5");
   const [dispute, setDispute] = useState("");
+  const [paymentOutcome, setPaymentOutcome] = useState<"success" | "failure" | "refund" | "payout">("success");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
+  const lastMessageId = useRef(0);
   const load = async () => {
     try {
       const [loaded, thread] = await Promise.all([
@@ -706,6 +732,7 @@ function OrderDetail({
       ]);
       setOrder(loaded);
       setMessages(thread);
+      lastMessageId.current = thread.at(-1)?.id ?? 0;
       setError("");
     } catch (error) {
       setError(
@@ -720,9 +747,24 @@ function OrderDetail({
     setDispute("");
     void load();
   }, [orderId]);
+  useEffect(() => {
+    if (!orderId) return;
+    const poll = () => {
+      if (document.hidden) return;
+      void api<Message[]>(`/orders/${orderId}/messages?after_id=${lastMessageId.current}`).then((rows) => {
+        if (!rows.length) return;
+        lastMessageId.current = Math.max(lastMessageId.current, ...rows.map((row) => row.id));
+        setMessages((current) => [...current, ...rows.filter((row) => !current.some((item) => item.id === row.id))]);
+      }).catch(() => undefined);
+    };
+    const timer = window.setInterval(poll, 8000);
+    return () => window.clearInterval(timer);
+  }, [orderId]);
   const action = async (path: string, body?: Record<string, unknown>) => {
     if (pending) return false;
     setPending(true);
+    setError("");
+    setNotice("");
     try {
       await api(path, {
         method: "POST",
@@ -769,7 +811,7 @@ function OrderDetail({
         className="back-link"
         onClick={() => navigate({ view: "orders" })}
       >
-        ← Orders
+        Orders
       </button>
       {error && <p className="notice notice-error">{error}</p>}
       {notice && <p className="notice notice-success">{notice}</p>}
@@ -818,7 +860,7 @@ function OrderDetail({
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Open submitted link ↗
+                        Open submitted link
                       </a>
                     )}
                   </div>
@@ -1002,26 +1044,46 @@ function OrderDetail({
               <strong>{labelStatus(order.payment_status)}</strong>
             </p>
             <p>
+              <span>Fee</span>
+              <strong>{money(order.fee_minor, order.currency)}</strong>
+            </p>
+            <p>
+              <span>Worker net</span>
+              <strong>{money(order.amount_minor - order.fee_minor, order.currency)}</strong>
+            </p>
+            <p>
+              <span>Payout</span>
+              <strong>{labelStatus(order.payout_status)}</strong>
+            </p>
+            <p>
               <span>Effort</span>
               <strong>{order.estimated_hours} hours</strong>
             </p>
             {isClient && process.env.NODE_ENV === "development" && (
-              <button
-                className="button button-secondary button-wide"
-                disabled={pending}
-                onClick={() =>
-                  void action(
-                    `/payments/simulate/${order.id}?event_id=ui-${order.id}-${Date.now()}`,
-                  )
-                }
-              >
-                Simulate payment
-              </button>
+              <details className="payment-simulator">
+                <summary>Development payment simulator</summary>
+                <label>
+                  Event outcome
+                  <select value={paymentOutcome} onChange={(event) => setPaymentOutcome(event.target.value as typeof paymentOutcome)}>
+                    <option value="success">Success / fund</option>
+                    <option value="failure">Failure</option>
+                    <option value="refund">Refund</option>
+                    <option value="payout">Payout</option>
+                  </select>
+                </label>
+                <button
+                  className="button button-secondary button-wide"
+                  disabled={pending}
+                  onClick={() => void action(`/payments/simulate/${order.id}?event_id=ui-${order.id}-${Date.now()}&outcome=${paymentOutcome}`)}
+                >
+                  Simulate payment
+                </button>
+              </details>
             )}
           </section>
-          <section className="message-panel">
+          <section className="message-panel" id="order-messages" aria-labelledby="order-messages-title">
             <div className="message-heading">
-              <h2>Messages</h2>
+              <h2 id="order-messages-title">Messages</h2>
               <button
                 className="button button-secondary"
                 disabled={pending}
@@ -1075,6 +1137,32 @@ function OrderDetail({
   );
 }
 
+function DashboardWorkspace({ user, navigate }: { user: User; navigate: Navigate }) {
+  const [orders, setOrders] = useState<Order[]>([]); const [projects, setProjects] = useState<Project[]>([]); const [applications, setApplications] = useState<Application[]>([]); const [matches, setMatches] = useState<Array<{ project_id: number; title: string; why: string }>>([]); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
+  const load = () => { setLoading(true); setError(""); return Promise.all([api<Order[]>("/orders"), api<Project[]>("/me/projects"), api<Application[]>("/me/applications"), api<typeof matches>("/matches")]).then(([loadedOrders, loadedProjects, loadedApplications, loadedMatches]) => { setOrders(loadedOrders); setProjects(loadedProjects); setApplications(loadedApplications); setMatches(loadedMatches); }).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load your overview.")).finally(() => setLoading(false)); };
+  useEffect(() => { void load(); }, []);
+  const pendingRequests = orders.filter((item) => item.worker_id === user.id && item.status === "pending_acceptance"); const deliverables = orders.filter((item) => item.worker_id === user.id && item.status === "active"); const reviews = orders.filter((item) => item.client_id === user.id && item.status === "submitted"); const applicants = projects.reduce((total, item) => total + (item.application_count ?? 0), 0);
+  return <section className="workspace-shell"><WorkspaceTitle title={`Good to see you, ${user.display_name}.`} text="Your next useful action, work history, and hiring activity in one place." action={<button className="button button-secondary" onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Retry"}</button>} />{error && <p className="notice notice-error" role="alert">{error}</p>}{loading ? <div className="page-loading">Loading your overview…</div> : <><div className="overview-grid"><section className="form-panel"><h2>Your work</h2><OverviewLine label="Requests to accept" count={pendingRequests.length} action={() => navigate({ view: "orders" })} /><OverviewLine label="Active deliveries" count={deliverables.length} action={() => navigate({ view: "orders" })} /><OverviewLine label="Applications" count={applications.length} action={() => navigate({ view: "applications" })} />{matches.slice(0, 3).map((item) => <button className="admin-line overview-link" key={item.project_id} onClick={() => navigate({ view: "project", id: item.project_id })}><strong>{item.title}</strong><span>{item.why}</span></button>)}{!pendingRequests.length && !deliverables.length && !applications.length && !matches.length && <Empty title="No work in motion yet" text="Find a focused project or offer one useful service." />}</section><section className="form-panel"><h2>Your hiring</h2><OverviewLine label="Deliveries to review" count={reviews.length} action={() => navigate({ view: "orders" })} /><OverviewLine label="Open projects" count={projects.filter((item) => item.status === "open").length} action={() => navigate({ view: "projects-mine" })} /><OverviewLine label="Applicants" count={applicants} action={() => navigate({ view: "projects-mine" })} /><div className="action-row"><button className="button button-primary" onClick={() => navigate({ view: "create" })}>Post a project</button><button className="button button-secondary" onClick={() => navigate({ view: "services" })}>Find talent</button></div></section></div><div className="overview-footer"><button className="button button-secondary" onClick={() => navigate({ view: "profile" })}>Update skills and availability</button><button className="button button-secondary" onClick={() => navigate({ view: "earnings" })}>View simulated earnings</button></div></> }</section>;
+}
+
+function OverviewLine({ label, count, action }: { label: string; count: number; action: () => void }) {
+  return <button className="overview-line" onClick={action}><span>{label}</span><strong>{count}</strong></button>;
+}
+
+function InboxWorkspace({ user, navigate }: { user: User; navigate: Navigate }) {
+  const [orders, setOrders] = useState<Order[]>([]); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const load = () => { setLoading(true); setError(""); return api<Order[]>("/orders").then(setOrders).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load your inbox.")).finally(() => setLoading(false)); };
+  useEffect(() => { void load(); }, []);
+  return <section className="workspace-shell"><WorkspaceTitle title="Inbox" text="Order conversations, with the latest message visible at a glance." action={<button className="button button-secondary" onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Retry"}</button>} />{error && <p className="notice notice-error" role="alert">{error}</p>}{loading ? <div className="page-loading">Loading your inbox…</div> : <div className="record-list">{orders.length ? orders.map((order) => <button className="record-row inbox-row" key={order.id} onClick={() => navigate({ view: "order", id: order.id })}><div><span className="status-tag">{labelStatus(order.status)}</span><h2>{order.title}</h2><p>{order.client_id === user.id ? order.worker?.display_name : order.client?.display_name} · {order.last_message?.body || "No messages yet"}</p></div><small>{order.last_message?.created_at ? new Date(order.last_message.created_at).toLocaleDateString("en-IN") : ""}</small></button>) : <Empty title="No conversations yet" text="Messages appear here once an order exists." />}</div>}</section>;
+}
+
+function EarningsWorkspace({ user }: { user: User }) {
+  const [orders, setOrders] = useState<Order[]>([]); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const load = () => { setLoading(true); setError(""); return api<Order[]>("/orders").then(setOrders).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load earnings.")).finally(() => setLoading(false)); };
+  useEffect(() => { void load(); }, []);
+  const totals = earningsByCurrency(orders, user.id);
+  const workerOrders = orders.filter((item) => item.worker_id === user.id);
+  return <section className="workspace-shell"><WorkspaceTitle title="Simulated earnings" text="Completed work value and simulated payouts, separated by currency. Nothing here is withdrawable balance." action={<button className="button button-secondary" onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Retry"}</button>} />{error && <p className="notice notice-error" role="alert">{error}</p>}{loading ? <div className="page-loading">Loading earnings…</div> : <><div className="profile-metrics">{totals.length ? totals.map((total) => <div key={total.currency}><strong>{money(total.completed_net_minor, total.currency)}</strong><span>Completed work value · {total.currency}</span><small>{money(total.paid_net_minor, total.currency)} simulated payouts</small></div>) : <div><strong>—</strong><span>No completed work yet</span></div>}</div><div className="record-list">{workerOrders.length ? workerOrders.map((order) => <article className="record-row" key={order.id}><div><span className="status-tag">{labelStatus(order.status)}</span><h2>{order.title}</h2><p>{money(order.amount_minor, order.currency)} · Fee {money(order.fee_minor, order.currency)} · Net {money(order.amount_minor - order.fee_minor, order.currency)}</p></div><strong>{labelStatus(order.payout_status)}</strong></article>) : <Empty title="No worker orders yet" text="Accepted work will appear here after a client hires you." />}</div></>}</section>;
+}
+
 function ProfileWorkspace({
   user,
   navigate,
@@ -1090,14 +1178,11 @@ function ProfileWorkspace({
   const [skills, setSkills] = useState<Array<{ name: string; level: string }>>(
     [],
   );
-  const [proof, setProof] = useState<
-    Array<{ id: number; order_id: number; title: string; public: boolean }>
-  >([]);
+  const [proof, setProof] = useState<Proof[]>([]);
   const [dashboard, setDashboard] = useState<{
-    earnings_minor: number;
     proof_count: number;
     average_rating: number | null;
-  }>({ earnings_minor: 0, proof_count: 0, average_rating: null });
+  }>({ proof_count: 0, average_rating: null });
   const [matches, setMatches] = useState<
     Array<{ project_id: number; title: string; why: string }>
   >([]);
@@ -1106,6 +1191,8 @@ function ProfileWorkspace({
   const [note, setNote] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const resendVerification = async () => { try { await api("/auth/resend-verification", { method: "POST" }); setNotice("A verification link was prepared in the local development mail sink."); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not resend verification."); } };
+  const toggleProof = async (item: Proof) => { try { const updated = await api<Proof>(`/me/proof/${item.id}`, { method: "PATCH", body: JSON.stringify({ public: !item.public }) }); setProof((rows) => rows.map((row) => row.id === item.id ? updated : row)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not change proof visibility."); } };
   useEffect(() => {
     void Promise.all([
       api<Array<{ name: string; level: string }>>("/me/skills"),
@@ -1187,6 +1274,7 @@ function ProfileWorkspace({
       <WorkspaceTitle
         title="Your profile"
         text="Keep the public basics of your work identity clear."
+        action={<button className="button button-secondary" onClick={() => navigate({ view: "person", id: user.id })}>View public profile</button>}
       />
       {error && <p className="notice notice-error">{error}</p>}
       {notice && <p className="notice notice-success">{notice}</p>}
@@ -1196,8 +1284,8 @@ function ProfileWorkspace({
           <span>Proof records</span>
         </div>
         <div>
-          <strong>{money(dashboard.earnings_minor)}</strong>
-          <span>Simulated earnings</span>
+          <strong>By currency</strong>
+          <button className="text-link" type="button" onClick={() => navigate({ view: "earnings" })}>Open simulated earnings</button>
         </div>
         <div>
           <strong>{dashboard.average_rating ?? "New"}</strong>
@@ -1234,21 +1322,11 @@ function ProfileWorkspace({
             />
           </label>
           <button className="button button-primary">Save profile</button>
+          <div className="verification-state"><strong>{user.is_verified ? "Email verified" : "Email not verified"}</strong>{!user.is_verified && <button className="button button-secondary" type="button" onClick={() => void resendVerification()}>Resend verification</button>}<small>Development links are written to the local mail sink; no email is delivered.</small></div>
           <h2>Verified proof of work</h2>
           {proof.length ? (
             proof.map((item) => (
-              <a
-                className="admin-line"
-                href={`/?view=order&id=${item.order_id}`}
-                key={item.id}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigate({ view: "order", id: item.order_id });
-                }}
-              >
-                <strong>{item.title}</strong>
-                <span>Order #{item.order_id}</span>
-              </a>
+              <div className="proof-row" key={item.id}><a className="admin-line" href={`/?view=order&id=${item.order_id}`} onClick={(event) => { event.preventDefault(); navigate({ view: "order", id: item.order_id }); }}><strong>{item.title}</strong><span>Order #{item.order_id} · {item.public ? "Public" : "Private"}</span></a><label className="proof-toggle"><input type="checkbox" checked={item.public} onChange={() => void toggleProof(item)} /><span>Show this proof on my public profile</span><small>Shares only the title, skills, and completion date. Publish only if the project title is safe to share.</small></label></div>
             ))
           ) : (
             <p className="muted">Accepted deliveries will appear here.</p>

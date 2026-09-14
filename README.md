@@ -2,7 +2,7 @@
 
 Skill-High is a local, student-first marketplace for finding practical help, agreeing a focused scope, delivering work, and keeping verified Proof-of-Work after graduation.
 
-It is a full-stack MVP, not a static mockup. The public page is a search-first marketplace backed by the live API; signed-in users can hire, offer services, manage orders, message, deliver, review, and resolve disputes.
+It is a full-stack local MVP, not a static mockup. The studio-style landing page leads into searchable services and projects backed by the live API; signed-in users can hire, offer services, manage orders, message, deliver, review, and resolve disputes.
 
 ## Documentation
 
@@ -11,8 +11,11 @@ It is a full-stack MVP, not a static mockup. The public page is a search-first m
 
 ## What works
 
+- A distinct landing page at `/` with local editorial photography, reduced-motion-safe journey animation, and separate `/?view=services` and `/?view=projects` catalog destinations.
 - Public service and project discovery with search, category shortcuts, rupee filters, local category photography, and shareable detail screens.
 - Registration, login, logout, profile editing, skills, and availability.
+- Client projects and service offers can be edited before work begins; owners can pause services, close projects, and workers can withdraw and reapply to open projects.
+- Dashboard, inbox summaries, simulated earnings by currency, verification recovery, and opt-in public profiles with safe Proof-of-Work fields.
 - Client projects, service offers, applications, service requests, and server-enforced order transitions.
 - Messages, HTTP(S) delivery links, revision requests, completion of the latest delivery only, verified reviews, and Proof-of-Work.
 - Rule-based matching, simulated local payments, disputes, and administrator resolution.
@@ -55,6 +58,8 @@ bun run dev
 ```
 
 Open http://127.0.0.1:3000. API documentation is at http://127.0.0.1:8000/docs.
+
+If those ports are already in use, check the existing app before starting another server. Do not delete `.next/dev/lock` while a Next.js development server is running.
 
 If the database container already exists, start it with:
 
@@ -105,7 +110,7 @@ The seed command is idempotent and is blocked when `APP_ENV=production`.
 
 - Payments are an explicitly labeled local simulator (`DEV_PAYMENT_SIMULATOR=true`). It never contacts a provider or moves real money.
 - Verification and password-reset tokens go only to `DEV_MAIL_DIR` (default: `.data/dev-mail`) in development; API responses never expose them.
-- Uploads fail closed until a malware scanner is configured. Delivery links continue to work.
+- File uploads are unavailable in this MVP (HTTP 503); private storage and scanner integration still need implementation. Text and HTTP(S) delivery links work.
 - The worker is local and PostgreSQL-backed. Install its schema and start it when developing or manually exercising worker handlers:
 
   ```bash
@@ -117,6 +122,7 @@ The seed command is idempotent and is blocked when `APP_ENV=production`.
 
 ```bash
 uv run pytest backend/tests -q
+bun test app/marketplace.test.ts
 bun run build
 ```
 
@@ -132,3 +138,5 @@ backend/seed.py       Idempotent fictional development data
 backend/tests/        PostgreSQL integration coverage
 backend/worker.py     Procrastinate worker entry point
 ```
+
+The local limits remain explicit: payment is a simulator, verification and reset messages stay in the development mail sink, file uploads are unavailable, and matching is a basic skills/weekly-hours heuristic. No public deployment, real email, or real money flow is included. See the technical design document for the remaining proposal features.

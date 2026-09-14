@@ -28,7 +28,7 @@ The product is a Next.js and FastAPI modular monolith using PostgreSQL. It uses 
 
 ## Brand Commitments
 
-The product is named Skill-High. Its approved public-marketplace direction is a neutral, search-first layout with a deep forest search surface, compact navigation, and dense real listing discovery. It takes structural inspiration from established service marketplaces while retaining Skill-High’s name, content, and identity. It is student-first, clear, practical, and trust-oriented.
+The product is named Skill-High. Its approved direction is a cobalt-and-ink workspace on a paper canvas: a photographic landing page introduces a clear Brief → Delivery → Proof journey, while the separate service and project catalogs stay practical and searchable. It is student-first, clear, practical, and trust-oriented, with Schibsted Grotesk display type and DM Sans body copy.
 
 ## Evidence on Hand
 

@@ -47,6 +47,12 @@ The test app creates or uses `skillhigh_test` and resets only that database. It 
 | `test_database_isolation.py::test_testing_database_never_defaults_to_the_development_database` | Test database URL is omitted.                                                                         | Test URL derives to `skillhigh_test`, not `skillhigh_dev`.                                                          |
 | `test_marketplace.py::test_marketplace_discovery_hiring_and_private_reads`                    | A worker publishes a service, applies to a project, and the owner accepts it.                         | Public person fields stay private; applicant/order reads are owner-only; delivery links are HTTP(S)-only; seller review aggregate reflects client reviews only. |
 | `test_orders.py::test_only_latest_delivery_can_be_accepted_after_revision`                   | A client requests a revision after a first delivery and tries to accept the obsolete delivery.       | The obsolete delivery returns HTTP 422; only the latest delivery completes the order.                             |
+| `test_listing_management.py`                                                                  | Owners edit/pause/resume services, edit/close projects, and workers withdraw/reapply.                | Ownership, snapshots, status transitions, and the unique application row are preserved.                           |
+| `test_concurrent_acceptance.py`                                                               | Two applicants are accepted concurrently for the same project.                                      | Exactly one acceptance succeeds and one order is created; the other request conflicts.                            |
+| `test_public_profile.py`                                                                      | A worker opts one completed proof record into a public profile.                                       | Only the safe title, skills, and date are public; disabling the flag removes it.                                  |
+| `test_password_reset.py::test_verification_and_recovery_tokens_are_single_use_and_resend_is_protected` | Verify/resend and reset flows replay old or unknown tokens.                                          | Verification and reset tokens are single-use; unknown reset requests remain non-enumerating.                      |
+| `test_orders.py::test_simulator_requires_funding_and_cannot_overwrite_settlement`              | A client attempts payout before funding and reuses a payment event.                                  | Payout returns HTTP 409 until valid; event identity cannot overwrite an existing settlement.                       |
+| `test_logout.py::test_logout_returns_no_content_clears_cookies_and_revokes_session`             | A signed-in member logs out over the session endpoint.                                               | Real HTTP returns 204, deletion cookies are sent, and the session cannot read `/me` afterward.                    |
 
 ## Manual acceptance path
 
@@ -61,6 +67,8 @@ Use a private/incognito window or sign out between roles.
 7. Verify Ravi has one Proof-of-Work record, then leave a review from Maya.
 8. For the dispute path, open a dispute before completion, verify completion is blocked, then resolve it as Aarav Admin and complete the order.
 9. For the payment path, use a unique event ID with the local simulator. Reusing it must return `duplicate: true` without changing financial state again.
+10. In Profile, resend verification when needed, toggle a completed proof record to Public, and open the public profile. Only the proof title, skills, and completion date should appear; toggle it off and confirm it disappears.
+11. Use Forgot password with an unknown address to confirm the same success response, then use a local-mail token once. After reset, the stale account menu must be gone until a new sign-in.
 
 ## Smoke checks
 

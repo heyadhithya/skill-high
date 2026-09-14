@@ -9,6 +9,88 @@ export type User = {
   is_verified?: boolean;
 };
 
+export type Route = {
+  view: string;
+  id?: number;
+  q: string;
+  category: string;
+  maxPrice: string;
+  sort: string;
+  next?: string;
+  mode?: "login" | "register";
+  token?: string;
+};
+
+const resourceViews = new Set(["service", "project", "order", "person", "edit-service", "edit-project", "applicants"]);
+const authViews = new Set(["auth", "forgot-password", "reset-password", "verify-email"]);
+
+function validNext(value: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value, "http://skill-high.local");
+    return parsed.origin === "http://skill-high.local" && parsed.pathname === "/" && !parsed.username && !parsed.password
+      ? `${parsed.pathname}${parsed.search}${parsed.hash}`
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function readRoute(search: string): Route {
+  const query = search.includes("?") ? search.slice(search.indexOf("?") + 1) : search.replace(/^\?/, "");
+  const params = new URLSearchParams(query);
+  const rawId = params.get("id") || "";
+  const parsedId = /^\d+$/.test(rawId) ? Number(rawId) : NaN;
+  const view = params.get("view") || "home";
+  const route: Route = {
+    view,
+    id: Number.isSafeInteger(parsedId) && parsedId > 0 ? parsedId : undefined,
+    q: params.get("q") || "",
+    category: params.get("category") || "All services",
+    maxPrice: params.get("maxPrice") || "",
+    sort: params.get("sort") || "newest",
+  };
+  const next = validNext(params.get("next"));
+  if (authViews.has(view) && next) route.next = next;
+  if (view === "auth") {
+    const mode = params.get("mode");
+    if (mode === "login" || mode === "register") route.mode = mode;
+  }
+  if (view === "reset-password" || view === "verify-email") {
+    const token = params.get("token");
+    if (token) route.token = token;
+  }
+  return route;
+}
+
+export type Navigate = (next: Partial<Route>) => void;
+
+export function routeHref(next: Partial<Route>, current: Route): string {
+  const merged: Route = { ...current, ...next };
+  const params = new URLSearchParams();
+  const view = merged.view || "home";
+  if (view !== "home") params.set("view", view);
+  const id = merged.id;
+  if (resourceViews.has(view) && Number.isSafeInteger(id) && (id ?? 0) > 0) params.set("id", String(id));
+  if (view === "services" || view === "projects" || view === "home" || view === "service" || view === "project" || view === "auth") {
+    if (merged.q) params.set("q", merged.q);
+    if (merged.category && merged.category !== "All services") params.set("category", merged.category);
+    if (merged.maxPrice) params.set("maxPrice", merged.maxPrice);
+    if (merged.sort && merged.sort !== "newest") params.set("sort", merged.sort);
+  }
+  if (view === "auth") {
+    if (merged.mode) params.set("mode", merged.mode);
+    const safe = validNext(merged.next ?? null);
+    if (safe) params.set("next", safe);
+  }
+  if (view === "reset-password" || view === "verify-email") {
+    if (merged.token) params.set("token", merged.token);
+    const safe = validNext(merged.next ?? null);
+    if (safe) params.set("next", safe);
+  }
+  return params.toString() ? `/?${params.toString()}` : "/";
+}
+
 export type PublicPerson = {
   id: number;
   display_name: string;
@@ -24,6 +106,9 @@ export type ServiceReview = {
   author_name: string;
 };
 
+export type Proof = { id: number; order_id: number; title: string; public: boolean; created_at?: string };
+export type PublicProof = { id: number; title: string; skills: string[]; created_at: string };
+
 export type Service = {
   id: number;
   provider_id: number;
@@ -33,11 +118,20 @@ export type Service = {
   currency: string;
   estimated_hours: number;
   created_at?: string;
+  is_active: boolean;
   skills: string[];
   provider: PublicPerson;
   seller_rating: number | null;
   seller_review_count: number;
   seller_reviews?: ServiceReview[];
+};
+
+export type PublicProfile = PublicPerson & {
+  services: Service[];
+  seller_rating: number | null;
+  seller_review_count: number;
+  seller_reviews: ServiceReview[];
+  proofs: PublicProof[];
 };
 
 export type Project = {
@@ -105,6 +199,7 @@ export type Order = {
   deliveries?: Delivery[];
   reviews?: Review[];
   disputes?: Dispute[];
+  last_message?: Message | null;
 };
 
 export type Message = {
@@ -172,6 +267,22 @@ export const money = (amount: number, currency = "INR") =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(Number(amount ?? 0) / 100);
+
+export function earningsByCurrency(
+  orders: Array<Pick<Order, "client_id" | "worker_id" | "amount_minor" | "fee_minor" | "currency" | "status" | "payment_status" | "payout_status">>,
+  userId: number,
+) {
+  const totals = new Map<string, { currency: string; completed_net_minor: number; paid_net_minor: number }>();
+  for (const order of orders) {
+    if (order.worker_id !== userId || order.status !== "completed") continue;
+    const entry = totals.get(order.currency) ?? { currency: order.currency, completed_net_minor: 0, paid_net_minor: 0 };
+    const net = order.amount_minor - order.fee_minor;
+    entry.completed_net_minor += net;
+    if (order.payout_status === "paid" && order.payment_status !== "refunded") entry.paid_net_minor += net;
+    totals.set(order.currency, entry);
+  }
+  return [...totals.values()];
+}
 
 export const categories = [
   "All services",

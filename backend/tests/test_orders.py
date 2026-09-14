@@ -111,3 +111,33 @@ def test_only_latest_delivery_can_be_accepted_after_revision() -> None:
         assert accepted.status_code == 200, accepted.text
         detail = client.get(f"/api/v1/orders/{order['id']}").json()
         assert detail["deliveries"][-1]["id"] == second["id"]
+
+
+def test_simulator_requires_funding_and_cannot_overwrite_settlement() -> None:
+    with TestClient(create_app(testing=True)) as client:
+        register(client, "fund-buyer@skillhigh-demo.com", "Fund Buyer")
+        client.post("/api/v1/auth/logout")
+        register(client, "fund-worker@skillhigh-demo.com", "Fund Worker")
+        client.headers["X-CSRF-Token"] = client.cookies.get("sh_csrf", "")
+        service = client.post("/api/v1/services", json={
+            "title": "Funded service", "description": "A service for payment state checks.",
+            "amount_minor": 12000, "estimated_hours": 2, "currency": "INR", "skills": ["Writing"],
+        }).json()
+        client.post("/api/v1/auth/logout")
+        login(client, "fund-buyer@skillhigh-demo.com")
+        order = client.post(f"/api/v1/services/{service['id']}/orders").json()
+        assert client.post(f"/api/v1/payments/simulate/{order['id']}?event_id=before-payout&outcome=payout").status_code == 409
+        client.post("/api/v1/auth/logout")
+        login(client, "fund-worker@skillhigh-demo.com")
+        assert client.post(f"/api/v1/orders/{order['id']}/accept").status_code == 200
+        delivery = client.post(f"/api/v1/orders/{order['id']}/deliveries", json={"message": "Final work", "submission_url": "https://example.test/final"}).json()
+        client.post("/api/v1/auth/logout")
+        login(client, "fund-buyer@skillhigh-demo.com")
+        assert client.post(f"/api/v1/orders/{order['id']}/complete", json={"delivery_id": delivery["id"]}).status_code == 200
+        assert client.post(f"/api/v1/payments/simulate/{order['id']}?event_id=settle&outcome=payout").status_code == 409
+        assert client.post(f"/api/v1/payments/simulate/{order['id']}?event_id=fund&outcome=success").status_code == 200
+        assert client.post(f"/api/v1/payments/simulate/{order['id']}?event_id=settle&outcome=payout").status_code == 200
+        duplicate = client.post(f"/api/v1/payments/simulate/{order['id']}?event_id=settle&outcome=payout")
+        assert duplicate.status_code == 200 and duplicate.json()["duplicate"] is True
+        assert client.post(f"/api/v1/payments/simulate/{order['id']}?event_id=settle&outcome=refund").status_code == 409
+        assert client.post(f"/api/v1/payments/simulate/{order['id']}?event_id=late-failure&outcome=failure").status_code == 409
