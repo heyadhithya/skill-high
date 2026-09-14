@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-14T00:00:00Z",
+  "title": "Design System: Skill-High",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Proof Navy",
+        "canonical": "#13243a",
+        "tonalRamp": [
+          "#13243a",
+          "#31465d",
+          "#607286",
+          "#9bacba",
+          "#d4dde0",
+          "#eef1ef",
+          "#f6f1e8",
+          "#fffdf8"
+        ]
+      },
+      "teal": {
+        "role": "primary",
+        "displayName": "Working Teal",
+        "canonical": "#08756a",
+        "tonalRamp": [
+          "#043d38",
+          "#07584f",
+          "#08756a",
+          "#319386",
+          "#78bbae",
+          "#b8ddd3",
+          "#dcefe8",
+          "#f0faf6"
+        ]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Focused Amber",
+        "canonical": "#c77814",
+        "tonalRamp": [
+          "#57320a",
+          "#8d510d",
+          "#c77814",
+          "#df9b43",
+          "#efbe7c",
+          "#f8dcaf",
+          "#fdf0d8",
+          "#fff9ef"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Editorial Display",
+        "purpose": "First-viewport and section statements."
+      },
+      "body": {
+        "displayName": "Operational Sans",
+        "purpose": "Forms, records, and explanatory copy."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-ambient",
+        "value": "0 18px 40px rgba(19, 36, 58, 0.09)",
+        "purpose": "Lift standalone panels from the paper ground."
+      }
+    ],
+    "motion": [
+      {
+        "name": "settle-in",
+        "value": "500ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "One restrained first-view reveal; content remains visible by default."
+      }
+    ],
+    "breakpoints": [
+      { "name": "tablet", "value": "860px" },
+      { "name": "phone", "value": "680px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action in a task area.",
+      "html": "<button class=\"ds-btn-primary\">Publish project</button>",
+      "css": ".ds-btn-primary { background:#08756a; border:0; border-radius:12px; box-shadow:0 7px 14px rgba(8,117,106,.2); color:#fff; font:700 16px DM Sans,Arial,sans-serif; padding:.68rem 1rem; } .ds-btn-primary:hover { background:#07584f; box-shadow:0 10px 18px rgba(8,117,106,.25); transform:translateY(-1px); } .ds-btn-primary:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A reversible or secondary task action.",
+      "html": "<button class=\"ds-btn-secondary\">Request revision</button>",
+      "css": ".ds-btn-secondary { background:#e8dfd0; border:0; border-radius:12px; color:#13243a; font:700 16px DM Sans,Arial,sans-serif; padding:.68rem 1rem; } .ds-btn-secondary:hover { background:#ded2c0; } .ds-btn-secondary:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "description": "Compact status or metadata, not a CTA.",
+      "html": "<span class=\"ds-chip\">Active</span>",
+      "css": ".ds-chip { background:#dcefe8; border-radius:999px; color:#07584f; display:inline-flex; font:800 .74rem DM Sans,Arial,sans-serif; letter-spacing:.035em; line-height:1; padding:.45rem .6rem; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A readable, warm-sheet field for authentication and work data.",
+      "html": "<input class=\"ds-input\" placeholder=\"Project title\" />",
+      "css": ".ds-input { background:#fffefa; border:1px solid #cbbda8; border-radius:10px; color:#13243a; font:16px DM Sans,Arial,sans-serif; min-height:2.75rem; padding:.65rem .75rem; } .ds-input:focus { border-color:#08756a; box-shadow:0 0 0 3px rgba(8,117,106,.12); outline:0; } .ds-input:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+    },
+    {
+      "name": "Workspace Tab",
+      "kind": "nav",
+      "description": "Horizontal, scroll-safe navigation for the signed-in workspace.",
+      "html": "<button class=\"ds-tab\" aria-selected=\"true\">Marketplace</button>",
+      "css": ".ds-tab { background:#13243a; border:0; border-radius:10px 10px 0 0; color:#fff; font:700 .9rem DM Sans,Arial,sans-serif; padding:.7rem .9rem; } .ds-tab:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Campus Workroom",
+    "overview": "Skill-High feels like a well-kept shared studio: paper-toned, focused, and more intentional than a generic gig board. Deep navy gives agreements and proof the seriousness they need; teal signals the next practical action.",
+    "keyCharacteristics": [
+      "Editorial headlines with an operational, highly readable UI.",
+      "Warm surfaces, sparse amber focus, and a single confident action color.",
+      "Clear panels and compact records rather than a wall of competing cards."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Teal is the only ordinary primary action color; amber never competes with it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Quiet Label Rule",
+        "body": "Labels support the task; only the action and the information it changes receive visual weight.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do use navy for high-trust totals and selected navigation.",
+      "Do make the next workflow action teal and keep metadata in a teal wash."
+    ],
+    "donts": [
+      "Don't use amber as a second CTA color.",
+      "Don't place headings under decorative eyebrow labels.",
+      "Don't use colored side rails, emoji-as-icons, or gradient text as substitutes for hierarchy."
+    ]
+  }
+}
