@@ -1,45 +1,106 @@
 # Skill-High
 
-Student-first work marketplace MVP. The project supports profiles, skills, availability, projects, services, applications, orders, messages, delivery, revisions, reviews, Proof-of-Work, disputes, and a development-only payment simulator.
+Skill-High is a local, student-first marketplace for finding practical help, agreeing a focused scope, delivering work, and keeping verified Proof-of-Work after graduation.
 
-## Local startup
+It is a full-stack MVP, not a static mockup. The public page is a search-first marketplace backed by the live API; signed-in users can hire, offer services, manage orders, message, deliver, review, and resolve disputes.
+
+## What works
+
+- Public service and project discovery with search and category shortcuts.
+- Registration, login, logout, profile editing, skills, and availability.
+- Client projects, service offers, applications, service requests, and server-enforced order transitions.
+- Messages, delivery links, revision requests, completion, verified reviews, and Proof-of-Work.
+- Rule-based matching, simulated local payments, disputes, and administrator resolution.
+- Server-side sessions, CSRF protection, Argon2 passwords, PostgreSQL persistence, Alembic migrations, and a PostgreSQL-backed Procrastinate worker.
+
+## Quick start
+
+Prerequisites: Podman, Python with `uv`, and Bun.
+
+Create the dedicated local PostgreSQL database the first time:
 
 ```bash
-podman run --name skillhigh-postgres --replace -d -e POSTGRES_DB=skillhigh_dev -e POSTGRES_USER=skillhigh -e POSTGRES_PASSWORD=skillhigh -p 127.0.0.1:54329:5432 docker.io/library/postgres:17-alpine
+podman run --name skillhigh-postgres --replace -d \
+  -e POSTGRES_DB=skillhigh_dev \
+  -e POSTGRES_USER=skillhigh \
+  -e POSTGRES_PASSWORD=skillhigh \
+  -p 127.0.0.1:54329:5432 \
+  docker.io/library/postgres:17-alpine
+```
+
+Install dependencies, migrate, and seed fictional development data:
+
+```bash
 uv sync --dev
+bun install
 uv run alembic upgrade head
 uv run python backend/seed.py
-uv run uvicorn app:app --app-dir backend --reload --port 8000
-bun install
+```
+
+Run the API and frontend in separate terminals:
+
+```bash
+uv run uvicorn app:app --app-dir backend --reload --host 127.0.0.1 --port 8000
+```
+
+```bash
 bun run dev
 ```
 
-Open `http://localhost:3000`. The API is at `http://127.0.0.1:8000/docs`.
+Open http://127.0.0.1:3000. API documentation is at http://127.0.0.1:8000/docs.
 
-Demo password for all seeded accounts: `skillhigh-demo-123`.
-
-- `ravi@skillhigh-campus.com` — student service provider
-- `maya@skillhigh-campus.com` — client
-- `admin@skillhigh-campus.com` — administrator
-
-`compose.yaml` is provided for environments with a Compose provider. This Fedora installation uses the equivalent direct Podman command above.
-
-## Development constraints
-
-Payments are a development-only simulator (`DEV_PAYMENT_SIMULATOR=true`). It never contacts a payment provider. File upload remains quarantined and returns an actionable error until a malware scanner is configured; delivery links work in the MVP.
-
-Password reset and email verification tokens are written only to `.data/dev-mail/` in development. API responses never return them. Start the PostgreSQL-backed notification worker after its schema is installed:
+If the database container already exists, start it with:
 
 ```bash
-PYTHONPATH=backend .venv/bin/procrastinate --app worker.app schema
-PYTHONPATH=backend .venv/bin/procrastinate --app worker.app worker
+podman start skillhigh-postgres
 ```
 
-## Verification
+`compose.yaml` provides the equivalent PostgreSQL setup for environments with a Compose provider.
+
+## Demo accounts
+
+In development, the sign-in panel has Worker, Client, and Admin buttons that fill a demo account automatically. All seeded accounts use this password:
+
+```text
+skillhigh-demo-123
+```
+
+| Role                      | Email                        |
+| ------------------------- | ---------------------------- |
+| Worker / service provider | `ravi@skillhigh-campus.com`  |
+| Client                    | `maya@skillhigh-campus.com`  |
+| Administrator             | `admin@skillhigh-campus.com` |
+
+The seed command is idempotent and is blocked when `APP_ENV=production`.
+
+## Development services and constraints
+
+- Payments are an explicitly labeled local simulator (`DEV_PAYMENT_SIMULATOR=true`). It never contacts a provider or moves real money.
+- Verification and password-reset tokens go only to `.data/dev-mail/` in development; API responses never expose them.
+- Uploads fail closed until a malware scanner is configured. Delivery links continue to work.
+- The worker is local and PostgreSQL-backed. Install its schema and start it when developing or manually exercising worker handlers:
+
+  ```bash
+  PYTHONPATH=backend .venv/bin/procrastinate --app worker.app schema --apply
+  PYTHONPATH=backend .venv/bin/procrastinate --app worker.app worker
+  ```
+
+## Verify
 
 ```bash
 uv run pytest backend/tests -q
 bun run build
 ```
 
-The PostgreSQL integration suite uses `skillhigh_test`, never `skillhigh_dev`; it creates the test database automatically with the local PostgreSQL development role.
+Integration tests always use `skillhigh_test`, never `skillhigh_dev`. The test database is created automatically by the local PostgreSQL development role, so running tests does not remove the seeded demo accounts.
+
+## Project structure
+
+```text
+app/                  Next.js interface and local API proxy
+backend/app.py        FastAPI modular-monolith API
+backend/migrations/   Alembic schema migration
+backend/seed.py       Idempotent fictional development data
+backend/tests/        PostgreSQL integration coverage
+backend/worker.py     Procrastinate worker entry point
+```
