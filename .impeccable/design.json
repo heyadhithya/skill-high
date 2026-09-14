@@ -4,79 +4,27 @@
   "title": "Design System: Skill-High",
   "extensions": {
     "colorMeta": {
-      "ink": {
-        "role": "neutral",
-        "displayName": "Proof Navy",
-        "canonical": "#13243a",
-        "tonalRamp": [
-          "#13243a",
-          "#31465d",
-          "#607286",
-          "#9bacba",
-          "#d4dde0",
-          "#eef1ef",
-          "#f6f1e8",
-          "#fffdf8"
-        ]
-      },
-      "teal": {
-        "role": "primary",
-        "displayName": "Working Teal",
-        "canonical": "#08756a",
-        "tonalRamp": [
-          "#043d38",
-          "#07584f",
-          "#08756a",
-          "#319386",
-          "#78bbae",
-          "#b8ddd3",
-          "#dcefe8",
-          "#f0faf6"
-        ]
-      },
-      "amber": {
-        "role": "tertiary",
-        "displayName": "Focused Amber",
-        "canonical": "#c77814",
-        "tonalRamp": [
-          "#57320a",
-          "#8d510d",
-          "#c77814",
-          "#df9b43",
-          "#efbe7c",
-          "#f8dcaf",
-          "#fdf0d8",
-          "#fff9ef"
-        ]
-      }
+      "ink": { "role": "neutral", "displayName": "Marketplace ink", "canonical": "#1d1f20" },
+      "ink-soft": { "role": "neutral", "displayName": "Soft ink", "canonical": "#45494b" },
+      "muted": { "role": "neutral", "displayName": "Muted gray", "canonical": "#6a706f" },
+      "paper": { "role": "neutral", "displayName": "Marketplace paper", "canonical": "#ffffff" },
+      "forest": { "role": "secondary", "displayName": "Discovery forest", "canonical": "#18372e" },
+      "teal": { "role": "primary", "displayName": "Working teal", "canonical": "#127455" },
+      "line": { "role": "neutral", "displayName": "Quiet line", "canonical": "#e3e5e4" },
+      "focus": { "role": "focus", "displayName": "Visible focus", "canonical": "#127455" }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Editorial Display",
-        "purpose": "First-viewport and section statements."
-      },
-      "body": {
-        "displayName": "Operational Sans",
-        "purpose": "Forms, records, and explanatory copy."
-      }
+      "display": { "displayName": "Manrope marketplace headings", "purpose": "Listing titles, page headings, and prices." },
+      "body": { "displayName": "DM Sans operational body", "purpose": "Forms, records, and explanatory copy." }
     },
-    "shadows": [
-      {
-        "name": "panel-ambient",
-        "value": "0 18px 40px rgba(19, 36, 58, 0.09)",
-        "purpose": "Lift standalone panels from the paper ground."
-      }
+    "breakpoints": [
+      { "name": "tablet", "value": "1080px" },
+      { "name": "phone", "value": "760px" },
+      { "name": "small-phone", "value": "470px" }
     ],
     "motion": [
-      {
-        "name": "settle-in",
-        "value": "500ms cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "One restrained first-view reveal; content remains visible by default."
-      }
-    ],
-    "breakpoints": [
-      { "name": "tablet", "value": "860px" },
-      { "name": "phone", "value": "680px" }
+      { "name": "standard", "value": "ease", "purpose": "Short border and lift transitions on interactive cards." },
+      { "name": "reduced", "value": "prefers-reduced-motion", "purpose": "Disable authored transitions for users who request less motion." }
     ]
   },
   "components": [
@@ -84,69 +32,59 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The single primary action in a task area.",
-      "html": "<button class=\"ds-btn-primary\">Publish project</button>",
-      "css": ".ds-btn-primary { background:#08756a; border:0; border-radius:12px; box-shadow:0 7px 14px rgba(8,117,106,.2); color:#fff; font:700 16px DM Sans,Arial,sans-serif; padding:.68rem 1rem; } .ds-btn-primary:hover { background:#07584f; box-shadow:0 10px 18px rgba(8,117,106,.25); transform:translateY(-1px); } .ds-btn-primary:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+      "description": "Teal action for a request, publish, accept, or save step.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Request service</button>",
+      "css": ".ds-btn-primary { background: var(--teal); border: 0; border-radius: 7px; color: #fff; font: 700 15px/1.5 Arial, sans-serif; min-height: 42px; padding: .58rem .95rem; transition: background .16s ease; } .ds-btn-primary:hover { background: #0a5d43; } .ds-btn-primary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "A reversible or secondary task action.",
-      "html": "<button class=\"ds-btn-secondary\">Request revision</button>",
-      "css": ".ds-btn-secondary { background:#e8dfd0; border:0; border-radius:12px; color:#13243a; font:700 16px DM Sans,Arial,sans-serif; padding:.68rem 1rem; } .ds-btn-secondary:hover { background:#ded2c0; } .ds-btn-secondary:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+      "description": "Quiet bordered alternative for navigation and reversible actions.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">View details</button>",
+      "css": ".ds-btn-secondary { background: #fff; border: 1px solid var(--line-dark); border-radius: 7px; color: var(--ink); font: 700 15px/1.5 Arial, sans-serif; min-height: 42px; padding: .58rem .95rem; transition: background .16s ease; } .ds-btn-secondary:hover { background: var(--wash); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
     },
     {
-      "name": "Status Chip",
-      "kind": "chip",
-      "description": "Compact status or metadata, not a CTA.",
-      "html": "<span class=\"ds-chip\">Active</span>",
-      "css": ".ds-chip { background:#dcefe8; border-radius:999px; color:#07584f; display:inline-flex; font:800 .74rem DM Sans,Arial,sans-serif; letter-spacing:.035em; line-height:1; padding:.45rem .6rem; }"
-    },
-    {
-      "name": "Text Field",
+      "name": "Search Field",
       "kind": "input",
-      "refersTo": "input",
-      "description": "A readable, warm-sheet field for authentication and work data.",
-      "html": "<input class=\"ds-input\" placeholder=\"Project title\" />",
-      "css": ".ds-input { background:#fffefa; border:1px solid #cbbda8; border-radius:10px; color:#13243a; font:16px DM Sans,Arial,sans-serif; min-height:2.75rem; padding:.65rem .75rem; } .ds-input:focus { border-color:#08756a; box-shadow:0 0 0 3px rgba(8,117,106,.12); outline:0; } .ds-input:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+      "refersTo": "input-field",
+      "description": "Labeled white field with a visible border and clear focus state.",
+      "html": "<label class=\"ds-field\"><span>Search services and projects</span><input class=\"ds-input\" type=\"search\" placeholder=\"What service do you need?\" /></label>",
+      "css": ".ds-field { color: var(--muted); display: grid; font: 700 12px/1.4 Arial, sans-serif; gap: .28rem; } .ds-input { background: #fff; border: 1px solid var(--line-dark); border-radius: 7px; color: var(--ink); font: 400 15px/1.5 Arial, sans-serif; min-height: 42px; padding: .58rem .65rem; width: 100%; } .ds-input::placeholder { color: #7b8580; opacity: 1; } .ds-input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
     },
     {
-      "name": "Workspace Tab",
+      "name": "Marketplace Navigation",
       "kind": "nav",
-      "description": "Horizontal, scroll-safe navigation for the signed-in workspace.",
-      "html": "<button class=\"ds-tab\" aria-selected=\"true\">Marketplace</button>",
-      "css": ".ds-tab { background:#13243a; border:0; border-radius:10px 10px 0 0; color:#fff; font:700 .9rem DM Sans,Arial,sans-serif; padding:.7rem .9rem; } .ds-tab:focus-visible { outline:3px solid #c77814; outline-offset:3px; }"
+      "refersTo": "navigation",
+      "description": "Compact text navigation with teal hover and no decorative pill treatment.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Marketplace navigation\"><a href=\"#services\">Browse services</a><a href=\"#projects\">Find work</a><a href=\"#post\">Post a project</a></nav>",
+      "css": ".ds-nav { align-items: center; display: flex; gap: .9rem; } .ds-nav a { color: var(--ink-soft); font: 400 14px/1.5 Arial, sans-serif; text-decoration: none; } .ds-nav a:hover { color: var(--teal); } .ds-nav a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }"
+    },
+    {
+      "name": "Skill Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Small pill reserved for a skill or status label.",
+      "html": "<span class=\"ds-tag\">Web design</span>",
+      "css": ".ds-tag { background: #eef4f0; border-radius: 999px; color: var(--forest); display: inline-flex; font: 700 12px/1.5 Arial, sans-serif; padding: .25rem .55rem; }"
+    },
+    {
+      "name": "Marketplace Card",
+      "kind": "card",
+      "refersTo": "marketplace-card",
+      "description": "Thin bordered listing record with an editorial media block, seller identity, and rupee price.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card-media\" aria-hidden=\"true\"></div><div class=\"ds-card-body\"><span class=\"ds-card-seller\">Ravi · Student</span><a class=\"ds-card-title\" href=\"#service\">Campus event poster</a><span class=\"ds-card-price\">From ₹1,800</span></div></article>",
+      "css": ".ds-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); overflow: hidden; transition: border-color .16s ease, transform .16s ease; } .ds-card:hover { border-color: #9bb6a9; transform: translateY(-2px); } .ds-card-media { aspect-ratio: 2.2 / 1; background: var(--forest); } .ds-card-body { padding: .85rem .9rem .95rem; } .ds-card-seller { color: var(--muted); display: block; font: 400 12px/1.5 Arial, sans-serif; margin-bottom: .55rem; } .ds-card-title { color: var(--ink); display: block; font: 700 16px/1.28 Arial, sans-serif; text-decoration: none; } .ds-card-title:hover { color: var(--teal); } .ds-card-price { border-top: 1px solid var(--line); display: block; font: 700 15px/1.5 Arial, sans-serif; margin-top: .8rem; padding-top: .7rem; text-align: right; }"
     }
   ],
   "narrative": {
-    "northStar": "The Campus Workroom",
-    "overview": "Skill-High feels like a well-kept shared studio: paper-toned, focused, and more intentional than a generic gig board. Deep navy gives agreements and proof the seriousness they need; teal signals the next practical action.",
-    "keyCharacteristics": [
-      "Editorial headlines with an operational, highly readable UI.",
-      "Warm surfaces, sparse amber focus, and a single confident action color.",
-      "Clear panels and compact records rather than a wall of competing cards."
-    ],
+    "northStar": "The Clear Workbench",
+    "overview": "Skill-High is a practical campus marketplace. It feels like a well-organized workbench: the next useful action is visible, scope and effort are easy to compare, and every record can lead to a real detail or order view. White surfaces, quiet dividers, initials, and restrained category photography keep attention on the offer rather than on decorative polish.\n\nThe system borrows the density and directness of a familiar service marketplace while keeping Skill-High’s own voice, fictional development catalog, and honest product limits. It is explicitly not a slogan-heavy AI landing page, and category photography is editorial context—not seller portfolio evidence.",
+    "keyCharacteristics": [],
     "rules": [
-      {
-        "name": "The One Signal Rule",
-        "body": "Teal is the only ordinary primary action color; amber never competes with it.",
-        "section": "colors"
-      },
-      {
-        "name": "The Quiet Label Rule",
-        "body": "Labels support the task; only the action and the information it changes receive visual weight.",
-        "section": "typography"
-      }
+      { "name": "The Clear Scope Rule", "body": "A listing should expose its title, seller identity, effort, price, and next action without invented claims or filler copy.", "section": "colors" }
     ],
-    "dos": [
-      "Do use navy for high-trust totals and selected navigation.",
-      "Do make the next workflow action teal and keep metadata in a teal wash."
-    ],
-    "donts": [
-      "Don't use amber as a second CTA color.",
-      "Don't place headings under decorative eyebrow labels.",
-      "Don't use colored side rails, emoji-as-icons, or gradient text as substitutes for hierarchy."
-    ]
+    "dos": ["Do lead with the catalog and keep the first row useful without scrolling.", "Do link titles, proof records, matching projects, and order states to their real detail routes.", "Do label simulated payments, fictional seed data, and category illustrations honestly."],
+    "donts": ["Don’t add giant slogans, fake testimonials, generic delivery promises, or fabricated seller portfolios.", "Don’t hide API failures behind an empty catalog; show a retry action.", "Don’t use uppercase tracking as decoration or turn operational records into marketing copy."]
   }
 }

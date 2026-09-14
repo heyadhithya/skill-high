@@ -11,10 +11,10 @@ It is a full-stack MVP, not a static mockup. The public page is a search-first m
 
 ## What works
 
-- Public service and project discovery with search and category shortcuts.
+- Public service and project discovery with search, category shortcuts, rupee filters, local category photography, and shareable detail screens.
 - Registration, login, logout, profile editing, skills, and availability.
 - Client projects, service offers, applications, service requests, and server-enforced order transitions.
-- Messages, delivery links, revision requests, completion, verified reviews, and Proof-of-Work.
+- Messages, HTTP(S) delivery links, revision requests, completion of the latest delivery only, verified reviews, and Proof-of-Work.
 - Rule-based matching, simulated local payments, disputes, and administrator resolution.
 - Server-side sessions, CSRF protection, Argon2 passwords, PostgreSQL persistence, Alembic migrations, and a PostgreSQL-backed Procrastinate worker.
 
@@ -25,11 +25,13 @@ Prerequisites: Podman, Python with `uv`, and Bun.
 Create the dedicated local PostgreSQL database the first time:
 
 ```bash
-podman run --name skillhigh-postgres --replace -d \
+podman volume create skillhigh_postgres
+podman run --name skillhigh-postgres -d \
   -e POSTGRES_DB=skillhigh_dev \
   -e POSTGRES_USER=skillhigh \
   -e POSTGRES_PASSWORD=skillhigh \
   -p 127.0.0.1:54329:5432 \
+  -v skillhigh_postgres:/var/lib/postgresql/data \
   docker.io/library/postgres:17-alpine
 ```
 
@@ -83,7 +85,7 @@ DATABASE_URL=postgresql+psycopg://skillhigh:skillhigh@127.0.0.1:54329/another_lo
 
 ## Demo accounts
 
-In development, the sign-in panel has Worker, Client, and Admin buttons that fill a demo account automatically. All seeded accounts use this password:
+In development, the dedicated sign-in screen has Worker, Client, and Admin buttons that fill a demo account automatically. All seeded accounts use this password:
 
 ```text
 skillhigh-demo-123
@@ -94,6 +96,8 @@ skillhigh-demo-123
 | Worker / service provider | `ravi@skillhigh-campus.com`  |
 | Client                    | `maya@skillhigh-campus.com`  |
 | Administrator             | `admin@skillhigh-campus.com` |
+
+The additive seed creates eight service listings and four fictional client projects. Category photography is editorial context, not seller portfolio evidence; seeded reviews and completed orders are intentionally absent.
 
 The seed command is idempotent and is blocked when `APP_ENV=production`.
 

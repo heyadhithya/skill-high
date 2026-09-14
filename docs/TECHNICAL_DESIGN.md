@@ -109,7 +109,7 @@ Payment and payout state remain independent from work state. The development sim
 
 Public project and service searches use PostgreSQL `ILIKE` over listing titles. The schema has normal listing indexes; PostgreSQL full-text search is not implemented in this MVP.
 
-The matching endpoint scores open projects with `20 × matching skills + 2 × min(available hours, estimated hours)`. It excludes a user's own projects and treats missing availability as zero. Messages use REST polling with an `after_id` cursor.
+The matching endpoint scores open projects with `20 × matching skills + 2 × min(available hours, estimated hours)`. It excludes a user's own projects and treats missing availability as zero. Messages use REST polling with an `after_id` cursor. Public listing responses include narrow person metadata, skill names, seller review aggregates, and detail history; private applicant, availability, order, proof, and dispute reads remain session-protected.
 
 ## Local operations
 
@@ -128,4 +128,5 @@ The matching endpoint scores open projects with `20 × matching skills + 2 × mi
 - There is no real payment provider, email provider, malware scanner, or object store.
 - No API endpoint currently enqueues the example Procrastinate notification task; it proves the worker setup without making order completion depend on an external side effect.
 - Listing search is title `ILIKE`, not full-text search.
+- Frontend category labels are inferred from listing skills and title with an `Other` fallback; the schema has no persisted category column yet.
 - The frontend is a focused single-page MVP rather than a separately routed interface for every resource.

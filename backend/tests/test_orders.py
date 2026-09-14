@@ -73,3 +73,41 @@ def test_project_order_becomes_one_proof_record_after_repeated_completion() -> N
         proof = client.get("/api/v1/me/proof").json()
         assert len(proof) == 1
         assert proof[0]["order_id"] == order["id"]
+
+
+def test_only_latest_delivery_can_be_accepted_after_revision() -> None:
+    with TestClient(create_app(testing=True)) as client:
+        register(client, "client-latest@skillhigh-demo.com", "Client Latest")
+        client.post("/api/v1/auth/logout")
+        register(client, "worker-latest@skillhigh-demo.com", "Worker Latest")
+        client.post("/api/v1/skills", json={"name": "Poster design"})
+        client.post("/api/v1/auth/logout")
+        login(client, "client-latest@skillhigh-demo.com")
+        project = client.post("/api/v1/projects", json={
+            "title": "Latest delivery test", "description": "Create one poster and revise it once.",
+            "amount_minor": 10000, "currency": "INR", "scale": "micro", "estimated_hours": 2,
+            "required_skills": ["Poster design"],
+        }).json()
+        client.post("/api/v1/auth/logout")
+        login(client, "worker-latest@skillhigh-demo.com")
+        application = client.post(f"/api/v1/projects/{project['id']}/applications").json()
+        client.post("/api/v1/auth/logout")
+        login(client, "client-latest@skillhigh-demo.com")
+        order = client.post(f"/api/v1/applications/{application['id']}/accept").json()
+        client.post("/api/v1/auth/logout")
+        login(client, "worker-latest@skillhigh-demo.com")
+        first = client.post(f"/api/v1/orders/{order['id']}/deliveries", json={"message": "First", "submission_url": "https://example.test/first"}).json()
+        client.post("/api/v1/auth/logout")
+        login(client, "client-latest@skillhigh-demo.com")
+        assert client.post(f"/api/v1/orders/{order['id']}/request-revision").status_code == 200
+        client.post("/api/v1/auth/logout")
+        login(client, "worker-latest@skillhigh-demo.com")
+        second = client.post(f"/api/v1/orders/{order['id']}/deliveries", json={"message": "Second", "submission_url": "https://example.test/second"}).json()
+        client.post("/api/v1/auth/logout")
+        login(client, "client-latest@skillhigh-demo.com")
+        old = client.post(f"/api/v1/orders/{order['id']}/complete", json={"delivery_id": first["id"]})
+        assert old.status_code == 422
+        accepted = client.post(f"/api/v1/orders/{order['id']}/complete", json={"delivery_id": second["id"]})
+        assert accepted.status_code == 200, accepted.text
+        detail = client.get(f"/api/v1/orders/{order['id']}").json()
+        assert detail["deliveries"][-1]["id"] == second["id"]

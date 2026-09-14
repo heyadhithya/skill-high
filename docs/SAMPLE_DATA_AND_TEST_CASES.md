@@ -8,15 +8,22 @@ Run `uv run python backend/seed.py` after migrations. It is repeatable: it creat
 | ------------- | ----------- | ---------------------------- | -------------------- |
 | Administrator | Aarav Admin | `admin@skillhigh-campus.com` | `skillhigh-demo-123` |
 | Worker        | Ravi Mehta  | `ravi@skillhigh-campus.com`  | `skillhigh-demo-123` |
+| Worker        | Nila Shah   | `nila@skillhigh-campus.com`  | `skillhigh-demo-123` |
+| Worker        | Ishan Rao   | `ishan@skillhigh-campus.com` | `skillhigh-demo-123` |
+| Worker        | Tara Sen    | `tara@skillhigh-campus.com`  | `skillhigh-demo-123` |
+| Worker        | Kabir Das   | `kabir@skillhigh-campus.com` | `skillhigh-demo-123` |
 | Client        | Maya Kapoor | `maya@skillhigh-campus.com`  | `skillhigh-demo-123` |
 
 The seed also creates these fictional records:
 
-| Resource | Owner       | Details                                                        |
-| -------- | ----------- | -------------------------------------------------------------- |
-| Skill    | Ravi Mehta  | Poster design (strong), Frontend development (working)         |
-| Service  | Ravi Mehta  | Campus event poster, ₹1,800.00, estimated 3 hours              |
-| Project  | Maya Kapoor | Landing page polish, ₹3,500.00, small scale, estimated 8 hours |
+| Resource | Owner       | Details |
+| -------- | ----------- | ------- |
+| Services | Ravi Mehta  | Campus event poster (₹1,800, 3h), Social media launch kit (₹2,400, 5h) |
+| Services | Nila Shah   | Responsive portfolio website (₹6,500, 12h), Website mobile layout review (₹2,200, 4h) |
+| Services | Ishan Rao   | Short-form video edit (₹2,800, 5h) |
+| Services | Tara Sen    | Clear website copy (₹2,000, 4h), Pitch deck layout (₹3,200, 6h) |
+| Service  | Kabir Das   | Product photo cleanup (₹1,600, 3h) |
+| Projects | Maya Kapoor | Landing page polish (₹3,500, 8h), Research report proofreading (₹1,500, 3h), Club launch video (₹3,000, 6h), Sponsor presentation refresh (₹2,400, 5h) |
 
 No seed account, password, or payment activity is for production use.
 
@@ -38,6 +45,8 @@ The test app creates or uses `skillhigh_test` and resets only that database. It 
 | `test_cancellation.py::test_active_order_cancellation_blocks_simulated_payout`                 | A provider accepts and cancels a service order; the client requests a payout.                         | Order becomes cancelled and payout returns HTTP 409.                                                                |
 | `test_password_reset.py::test_password_reset_uses_local_mail_sink_without_returning_the_token` | A user requests a reset and uses the local-mail token.                                                | API response does not expose the token; reset and new-password login work.                                          |
 | `test_database_isolation.py::test_testing_database_never_defaults_to_the_development_database` | Test database URL is omitted.                                                                         | Test URL derives to `skillhigh_test`, not `skillhigh_dev`.                                                          |
+| `test_marketplace.py::test_marketplace_discovery_hiring_and_private_reads`                    | A worker publishes a service, applies to a project, and the owner accepts it.                         | Public person fields stay private; applicant/order reads are owner-only; delivery links are HTTP(S)-only; seller review aggregate reflects client reviews only. |
+| `test_orders.py::test_only_latest_delivery_can_be_accepted_after_revision`                   | A client requests a revision after a first delivery and tries to accept the obsolete delivery.       | The obsolete delivery returns HTTP 422; only the latest delivery completes the order.                             |
 
 ## Manual acceptance path
 

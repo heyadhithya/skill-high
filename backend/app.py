@@ -12,11 +12,12 @@ from typing import Generator, Literal
 from argon2 import PasswordHasher
 from fastapi import Cookie, Depends, FastAPI, File, Header, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from urllib.parse import urlsplit
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://skillhigh:skillhigh@127.0.0.1:54329/skillhigh_dev"
 PASSWORDS = PasswordHasher()
@@ -306,6 +307,17 @@ class DeliveryIn(BaseModel):
     message: str = Field(min_length=1, max_length=5000)
     submission_url: str = Field(default="", max_length=500)
 
+    @field_validator("submission_url")
+    @classmethod
+    def validate_submission_url(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return value
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("submission_url must be an absolute HTTP(S) URL")
+        return value
+
 
 class MessageIn(BaseModel):
     body: str = Field(min_length=1, max_length=5000)
@@ -387,6 +399,90 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
             db.add(skill)
             db.flush()
         return skill
+
+    def public_person(db: Session, user_id: int) -> dict:
+        user = db.get(User, user_id)
+        if not user:
+            return {"id": user_id, "display_name": "Unknown member", "career_stage": "student", "bio": "", "skills": []}
+        skills = db.scalars(select(Skill.name).join(UserSkill).where(UserSkill.user_id == user_id).order_by(Skill.name)).all()
+        return {"id": user.id, "display_name": user.display_name, "career_stage": user.career_stage, "bio": user.bio, "skills": skills}
+
+    def service_skills(db: Session, service_id: int) -> list[str]:
+        return db.scalars(select(Skill.name).join(ServiceSkill).where(ServiceSkill.service_id == service_id).order_by(ServiceSkill.id)).all()
+
+    def project_skills(db: Session, project_id: int) -> list[str]:
+        return db.scalars(select(Skill.name).join(ProjectSkill).where(ProjectSkill.project_id == project_id).order_by(ProjectSkill.id)).all()
+
+    def seller_reviews(db: Session, provider_id: int) -> list[dict]:
+        rows = db.execute(
+            select(Review, User.display_name)
+            .join(User, User.id == Review.author_id)
+            .join(Order, Order.id == Review.order_id)
+            .where(Review.recipient_id == provider_id, Review.author_id == Order.client_id, Order.worker_id == provider_id, Order.status == "completed")
+            .order_by(Review.id.desc())
+        ).all()
+        return [{"id": review.id, "rating": review.rating, "body": review.body, "author_name": author_name} for review, author_name in rows]
+
+    def serialize_service(db: Session, service: Service, detail: bool = False) -> dict:
+        reviews = seller_reviews(db, service.provider_id)
+        result = {
+            "id": service.id,
+            "provider_id": service.provider_id,
+            "title": service.title,
+            "description": service.description,
+            "amount_minor": service.amount_minor,
+            "currency": service.currency,
+            "estimated_hours": service.estimated_hours,
+            "created_at": service.created_at,
+            "skills": service_skills(db, service.id),
+            "provider": public_person(db, service.provider_id),
+            "seller_rating": round(sum(item["rating"] for item in reviews) / len(reviews), 1) if reviews else None,
+            "seller_review_count": len(reviews),
+        }
+        if detail:
+            result["seller_reviews"] = reviews
+        return result
+
+    def serialize_project(db: Session, project: Project, include_status: bool = True) -> dict:
+        result = {
+            "id": project.id,
+            "client_id": project.client_id,
+            "title": project.title,
+            "description": project.description,
+            "amount_minor": project.amount_minor,
+            "currency": project.currency,
+            "estimated_hours": project.estimated_hours,
+            "scale": project.scale,
+            "created_at": project.created_at,
+            "required_skills": project_skills(db, project.id),
+            "client": public_person(db, project.client_id),
+        }
+        if include_status:
+            result["status"] = project.status
+        return result
+
+    def serialize_order_detail(db: Session, order: Order) -> dict:
+        result = serialize_order(order)
+        result.update({
+            "project_id": order.project_id,
+            "service_id": order.service_id,
+            "created_at": order.created_at,
+            "client": public_person(db, order.client_id),
+            "worker": public_person(db, order.worker_id),
+            "deliveries": [
+                {"id": row.id, "author_id": row.author_id, "message": row.message, "submission_url": row.submission_url, "created_at": row.created_at}
+                for row in db.scalars(select(Delivery).where(Delivery.order_id == order.id).order_by(Delivery.id)).all()
+            ],
+            "reviews": [
+                {"id": row.id, "author_id": row.author_id, "recipient_id": row.recipient_id, "rating": row.rating, "body": row.body}
+                for row in db.scalars(select(Review).where(Review.order_id == order.id).order_by(Review.id)).all()
+            ],
+            "disputes": [
+                {"id": row.id, "reason": row.reason, "status": row.status}
+                for row in db.scalars(select(Dispute).where(Dispute.order_id == order.id).order_by(Dispute.id)).all()
+            ],
+        })
+        return result
 
     def participant(db: Session, order_id: int, user: User) -> Order:
         order = db.get(Order, order_id)
@@ -498,6 +594,11 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
     def my_skills(db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
         return [{"id": skill.id, "name": skill.name, "level": level} for skill, level in db.execute(select(Skill, UserSkill.level).join(UserSkill).where(UserSkill.user_id == user.id)).all()]
 
+    @app.get("/api/v1/me/availability")
+    def my_availability(db: Session = Depends(db_session), user: User = Depends(current_user)) -> dict:
+        item = db.scalar(select(Availability).where(Availability.user_id == user.id))
+        return {"hours_per_week": item.hours_per_week if item else 0, "note": item.note if item else ""}
+
     @app.put("/api/v1/me/availability")
     def set_availability(payload: dict, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
         hours = payload.get("hours_per_week")
@@ -518,7 +619,48 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
         stmt = select(Project).where(Project.status == "open")
         if q: stmt = stmt.where(Project.title.ilike(f"%{q.strip()}%"))
         if scale: stmt = stmt.where(Project.scale == scale)
-        return [{"id": p.id, "client_id": p.client_id, "title": p.title, "description": p.description, "amount_minor": p.amount_minor, "currency": p.currency, "scale": p.scale, "estimated_hours": p.estimated_hours} for p in db.scalars(stmt.order_by(Project.created_at.desc())).all()]
+        return [serialize_project(db, p) for p in db.scalars(stmt.order_by(Project.created_at.desc())).all()]
+
+    @app.get("/api/v1/projects/{project_id}")
+    def get_project(project_id: int, db: Session = Depends(db_session)) -> dict:
+        project = db.get(Project, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        return serialize_project(db, project)
+
+    @app.get("/api/v1/me/projects")
+    def my_projects(db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
+        projects = db.scalars(select(Project).where(Project.client_id == user.id).order_by(Project.created_at.desc())).all()
+        result = []
+        for project in projects:
+            application_count = db.scalar(select(func.count()).select_from(Application).where(Application.project_id == project.id)) or 0
+            order = db.scalar(select(Order).where(Order.project_id == project.id))
+            result.append({**serialize_project(db, project), "application_count": application_count, "order_id": order.id if order else None})
+        return result
+
+    @app.get("/api/v1/projects/{project_id}/applications")
+    def project_applications(project_id: int, db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
+        project = db.get(Project, project_id)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        if project.client_id != user.id:
+            raise HTTPException(403, "Only the project client may view applications")
+        return [
+            {"id": application.id, "project_id": application.project_id, "worker_id": application.worker_id, "status": application.status, "created_at": application.created_at, "worker": public_person(db, application.worker_id)}
+            for application in db.scalars(select(Application).where(Application.project_id == project_id).order_by(Application.created_at)).all()
+        ]
+
+    @app.get("/api/v1/me/applications")
+    def my_applications(db: Session = Depends(db_session), user: User = Depends(current_user)) -> list[dict]:
+        applications = db.scalars(select(Application).where(Application.worker_id == user.id).order_by(Application.created_at.desc())).all()
+        result = []
+        for application in applications:
+            project = db.get(Project, application.project_id)
+            if not project:
+                continue
+            order = db.scalar(select(Order).where(Order.project_id == project.id, Order.worker_id == user.id)) if application.status == "accepted" else None
+            result.append({"id": application.id, "status": application.status, "project": serialize_project(db, project), "order_id": order.id if order else None})
+        return result
 
     @app.post("/api/v1/projects/{project_id}/applications", status_code=201)
     def apply(project_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
@@ -554,7 +696,14 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
     def list_services(q: str = "", db: Session = Depends(db_session)) -> list[dict]:
         stmt = select(Service).where(Service.is_active.is_(True))
         if q: stmt = stmt.where(Service.title.ilike(f"%{q.strip()}%"))
-        return [{"id": s.id, "provider_id": s.provider_id, "title": s.title, "description": s.description, "amount_minor": s.amount_minor, "currency": s.currency, "estimated_hours": s.estimated_hours} for s in db.scalars(stmt.order_by(Service.created_at.desc())).all()]
+        return [serialize_service(db, s) for s in db.scalars(stmt.order_by(Service.created_at.desc())).all()]
+
+    @app.get("/api/v1/services/{service_id}")
+    def get_service(service_id: int, db: Session = Depends(db_session)) -> dict:
+        service = db.get(Service, service_id)
+        if not service or not service.is_active:
+            raise HTTPException(404, "Service not found")
+        return serialize_service(db, service, detail=True)
 
     @app.post("/api/v1/services/{service_id}/orders", status_code=201)
     def request_service(service_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
@@ -577,7 +726,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
         return [serialize_order(order) for order in db.scalars(select(Order).where((Order.client_id == user.id) | (Order.worker_id == user.id)).order_by(Order.created_at.desc())).all()]
 
     @app.get("/api/v1/orders/{order_id}")
-    def get_order(order_id: int, db: Session = Depends(db_session), user: User = Depends(current_user)) -> dict: return serialize_order(participant(db, order_id, user))
+    def get_order(order_id: int, db: Session = Depends(db_session), user: User = Depends(current_user)) -> dict: return serialize_order_detail(db, participant(db, order_id, user))
 
     @app.post("/api/v1/orders/{order_id}/cancel")
     def cancel_order(order_id: int, db: Session = Depends(db_session), user: User = Depends(actor)) -> dict:
@@ -618,6 +767,7 @@ def create_app(database_url: str | None = None, testing: bool = False) -> FastAP
         if order.status != "submitted": raise HTTPException(409, "Order is not ready to complete")
         delivery = db.get(Delivery, payload.delivery_id)
         if not delivery or delivery.order_id != order.id: raise HTTPException(422, "Delivery does not belong to this order")
+        if payload.delivery_id != order.latest_delivery_id: raise HTTPException(422, "Accept the latest delivery")
         if db.scalar(select(Dispute).where(Dispute.order_id == order.id, Dispute.status == "open")): raise HTTPException(409, "Resolve the dispute before completing work")
         order.status, order.payout_status = "completed", "ready"; proof = ProofOfWork(order_id=order.id, worker_id=order.worker_id, title=order.title); db.add(proof); audit(db, order.id, user.id, "order_completed")
         try: db.commit()
