@@ -5,6 +5,17 @@ node_modules/
 __pycache__/
 .pytest_cache/
 .env
+.env.*
+.env.local
+.env.vercel
+_local_db_dump.sql
+_local_db_dump.sql.bak
+_clean_dump.sql
+_push_db.sh
+_db_inspect.py
+_dump_err.log
+db_inspect*
+push_db*
 .codex/
 .impeccable/review/
 .vercel
